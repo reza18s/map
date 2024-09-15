@@ -1,0 +1,1345 @@
+// File: src/app/providers.tsx
+"use client";
+
+import { NextUIProvider } from "@nextui-org/react";
+import { ReactNode } from "react";
+
+interface ProvidersProps {
+  children: ReactNode;
+}
+
+export function Providers({ children }: ProvidersProps) {
+  return <NextUIProvider>{children}</NextUIProvider>;
+}
+
+// File: src/app/layout.tsx
+import { Inter } from "next/font/google";
+import { ReactNode } from "react";
+import { Providers } from "./providers";
+import "./globals.css";
+import "../css/style.css";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata = {
+  title: "Map",
+  description: "Map Selector by shahyad karimi",
+};
+
+interface RootLayoutProps {
+  children: ReactNode;
+}
+
+export default function RootLayout({ children }: RootLayoutProps) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+
+// File: src/app/api/settings/route.ts
+import connectDB from "@/configs/db";
+import SettingsModel from "@/models/SettingsModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+
+    const { lat, lng, zoom } = body;
+
+    await SettingsModel.findOneAndUpdate(
+      { _id: "66c3774a9757762530e4bfd1" },
+      {
+        $set: {
+          lat,
+          lng,
+          zoom,
+        },
+      },
+    );
+
+    return NextResponse.json(
+      { message: "Point updated successfully !" },
+      { status: 200 },
+    );
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    await connectDB();
+
+    const settings = await SettingsModel.findOne(
+      { _id: "66c3774a9757762530e4bfd1" },
+      "-__v",
+    );
+
+    return NextResponse.json(settings);
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/route.ts
+import connectDB from "@/configs/db";
+import MapModel from "@/models/MapModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+
+    const { lat, lng, date, deletedAt, name, frequency } = body;
+
+    const points = await MapModel.create({
+      lat,
+      lng,
+      date,
+      name,
+      frequency,
+      deletedAt,
+    });
+
+    return NextResponse.json(
+      { message: "Point created successfully !", points },
+      { status: 200 },
+    );
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    await connectDB();
+
+    const points = await MapModel.find({ deletedAt: null }, "-__v");
+
+    return NextResponse.json(points);
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+    const { id } = body;
+
+    await MapModel.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          deletedAt: new Date(),
+        },
+      },
+    );
+
+    return NextResponse.json({ message: "Point deleted successfully !" });
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/search/route.ts
+import connectDB from "@/configs/db";
+import MapModel from "@/models/MapModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+    const { search } = body;
+
+    const points = await MapModel.find({ name: search, deletedAt: null });
+
+    return NextResponse.json(points);
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/update-point/route.ts
+import connectDB from "@/configs/db";
+import MapModel from "@/models/MapModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+    const { name, lat, lng, frequency, id } = body;
+
+    await MapModel.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          name,
+          lat,
+          lng,
+          frequency,
+        },
+      },
+    );
+
+    return NextResponse.json({ message: "Point updated !" });
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/change-status/route.ts
+import connectDB from "@/configs/db";
+import MapModel from "@/models/MapModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+    const { id } = body;
+
+    const point = await MapModel.findOne({ _id: id });
+
+    await MapModel.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          status: point.status === "active" ? "disable" : "active",
+        },
+      },
+    );
+
+    return NextResponse.json({ message: "Point status updated !" });
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/page.tsx
+"use client";
+import dynamic from "next/dynamic";
+import { useState } from "react";
+
+const Map = dynamic(() => import("@/components/map/Map"), {
+  ssr: false,
+});
+const Sidebar = dynamic(() => import("@/components/sidebar/Sidebar"), {
+  ssr: false,
+});
+
+export default function Home() {
+  const [addPointModal, setAddPointModal] = useState<boolean>(false);
+  const [showPointList, setShowPointList] = useState<boolean>(false);
+
+  return (
+    <div className="flex h-screen w-full items-center">
+      <Sidebar
+        addPointModal={addPointModal}
+        setAddPointModal={setAddPointModal}
+        showPointList={showPointList}
+        setShowPointList={setShowPointList}
+      />
+      <Map
+        addPointModal={addPointModal}
+        setAddPointModal={setAddPointModal}
+        showPointList={showPointList}
+        setShowPointList={setShowPointList}
+      />
+    </div>
+  );
+}
+
+// File: src/app/globals.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+// File: src/helper/helper.ts
+interface Date {
+  start: {
+    day: number;
+    month: number;
+    year: number;
+  };
+  end: {
+    day: number;
+    month: number;
+    year: number;
+  };
+}
+
+interface Time {
+  hour: number;
+  minute: number;
+}
+
+const dateFormatter = (date: Date, time: Time) => {
+  return {
+    start: `${date.start.month}/${date.start.day}/${date.start.year} ${time.hour}:${time.minute}`,
+    end: `${date.end.month}/${date.end.day}/${date.end.year} ${time.hour}:${time.minute}`,
+  };
+};
+
+export { dateFormatter };
+
+// File: src/helper/offline.ts
+/* global L, LeafletOffline, $  */
+const urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+function showTileList() {
+  LeafletOffline.getStorageInfo(urlTemplate).then((r) => {
+    const list = document.getElementById("tileinforows")!;
+    list.innerHTML = "";
+    for (let i = 0; i < r.length; i += 1) {
+      const createdAt = new Date(r[i].createdAt);
+      list.insertAdjacentHTML(
+        "beforeend",
+        `<tr><td>${i}</td><td>${r[i].url}</td><td>${
+          r[i].key
+        }</td><td>${createdAt.toDateString()}</td></tr>`,
+      );
+    }
+  });
+}
+
+$("#storageModal").on("show.bs.modal", () => {
+  showTileList();
+});
+
+const map = L.map("map");
+// offline baselayer, will use offline source if available
+const baseLayer = L.tileLayer
+  .offline(urlTemplate, {
+    attribution: "Map data {attribution.OpenStreetMap}",
+    subdomains: "abc",
+    minZoom: 13,
+  })
+  .addTo(map);
+// add buttons to save tiles in area viewed
+const control = L.control.savetiles(baseLayer, {
+  zoomlevels: [13, 16], // optional zoomlevels to save, default current zoomlevel
+  confirm(layer, succescallback) {
+    // eslint-disable-next-line no-alert
+    if (window.confirm(`Save ${layer._tilesforSave.length}`)) {
+      succescallback();
+    }
+  },
+  confirmRemoval(layer, successCallback) {
+    // eslint-disable-next-line no-alert
+    if (window.confirm("Remove all the tiles?")) {
+      successCallback();
+    }
+  },
+  saveText:
+    '<i class="fa fa-download" aria-hidden="true" title="Save tiles"></i>',
+  rmText:
+    '<i class="fa fa-trash" aria-hidden="true"  title="Remove tiles"></i>',
+});
+control.addTo(map);
+
+map.setView(
+  {
+    lat: 51.985,
+    lng: 5,
+  },
+  16,
+);
+// layer switcher control
+const layerswitcher = L.control
+  .layers(
+    {
+      "osm (offline)": baseLayer,
+    },
+    null,
+    { collapsed: false },
+  )
+  .addTo(map);
+
+let storageLayer: L.GeoJSON;
+
+const getGeoJsonData = () =>
+  LeafletOffline.getStorageInfo(urlTemplate).then((data) =>
+    LeafletOffline.getStoredTilesAsJson(baseLayer, data),
+  );
+
+const addStorageLayer = () => {
+  getGeoJsonData().then((geojson) => {
+    storageLayer = L.geoJSON(geojson).bindPopup(
+      (clickedLayer) => clickedLayer.feature.properties.key,
+    );
+    layerswitcher.addOverlay(storageLayer, "stored tiles");
+  });
+};
+
+addStorageLayer();
+
+document.getElementById("remove_tiles")!.addEventListener("click", () => {
+  control._rmTiles();
+});
+baseLayer.on("storagesize", (e) => {
+  document.getElementById("storage")!.innerHTML = e.storagesize;
+  if (storageLayer) {
+    storageLayer.clearLayers();
+    getGeoJsonData().then((data) => {
+      storageLayer.addData(data);
+    });
+  }
+});
+
+// events while saving a tile layer
+let progress = 0;
+baseLayer.on("savestart", (e) => {
+  progress = 0;
+  document.getElementById("total")!.innerHTML = e._tilesforSave.length;
+});
+baseLayer.on("savetileend", () => {
+  progress += 1;
+  document.getElementById("progress")!.innerHTML = progress;
+});
+
+// File: src/css/style.css
+.leaflet-container,
+.leaflet {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes spinner {
+  0% {
+    transform: rotate(0);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner-anim {
+  animation: spinner 1s infinite;
+}
+
+.leaflet-right {
+  display: none;
+}
+// File: src/components/map/DeleteIcon.tsx
+import React from "react";
+
+export const DeleteIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height="1em"
+    role="presentation"
+    viewBox="0 0 20 20"
+    width="1em"
+    {...props}
+  >
+    <path
+      d="M17.5 4.98332C14.725 4.70832 11.9333 4.56665 9.15 4.56665C7.5 4.56665 5.85 4.64998 4.2 4.81665L2.5 4.98332"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+    />
+    <path
+      d="M7.08331 4.14169L7.26665 3.05002C7.39998 2.25835 7.49998 1.66669 8.90831 1.66669H11.0916C12.5 1.66669 12.6083 2.29169 12.7333 3.05835L12.9166 4.14169"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+    />
+    <path
+      d="M15.7084 7.61664L15.1667 16.0083C15.075 17.3166 15 18.3333 12.675 18.3333H7.32502C5.00002 18.3333 4.92502 17.3166 4.83335 16.0083L4.29169 7.61664"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+    />
+    <path
+      d="M8.60834 13.75H11.3833"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+    />
+    <path
+      d="M7.91669 10.4167H12.0834"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+    />
+  </svg>
+);
+
+// File: src/components/map/Map.tsx
+/* eslint-disable react-hooks/exhaustive-deps */
+import React, { useCallback, useEffect, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import L from "leaflet";
+import "leaflet.offline";
+import "leaflet/dist/leaflet.css";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  Tooltip,
+  TableColumn,
+  TableHeader,
+  TableRow,
+  Button,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Input,
+  Spinner,
+  Chip,
+  DateRangePicker,
+  TimeInput,
+} from "@nextui-org/react";
+import { deleteData, getData, postData } from "@/services/API";
+import { PointIcon } from "./PointIcon";
+import { useForm } from "react-hook-form";
+import { EditIcon } from "./EditIcon";
+import { DeleteIcon } from "./DeleteIcon";
+import { dateFormatter } from "@/helper/helper";
+
+interface MapProps {
+  addPointModal: boolean;
+  setAddPointModal: React.Dispatch<React.SetStateAction<boolean>>;
+  showPointList: boolean;
+  setShowPointList: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const columns = [
+  { name: "id", uid: "id" },
+  { name: "name", uid: "name" },
+  { name: "lat", uid: "lat" },
+  { name: "lng", uid: "lng" },
+  { name: "frequency", uid: "frequency" },
+  { name: "status", uid: "status" },
+  { name: "time", uid: "time" },
+  { name: "", uid: "action" },
+];
+
+const statusColorMap = {
+  active: "success",
+  disable: "danger",
+};
+
+export default function Map({
+  addPointModal,
+  setAddPointModal,
+  showPointList,
+  setShowPointList,
+}: MapProps) {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    resetField,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm({
+    mode: "onBlur",
+    defaultValues: {
+      name: "",
+      lat: "",
+      lng: "",
+      frequency: "",
+      lat_settings: "",
+      lng_settings: "",
+      zoom: "",
+      search: "",
+    },
+  });
+
+  const [position, setPosition] = useState<number[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [rotateIcon, setRotateIcon] = useState<boolean>(false);
+  const [points, setPoints] = useState<any[]>([]);
+  const [pointsList, setPointsList] = useState<any[]>([]);
+  const [addPointLoading, setAddPointLoading] = useState<boolean>(false);
+  const [deleteModal, setDeleteModal] = useState<boolean>(false);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const [pointId, setPointId] = useState<string>("");
+  const [statusLoading, setStatusLoading] = useState<boolean>(false);
+  const [editModal, setEditModal] = useState<boolean>(false);
+  const [editLoading, setEditLoading] = useState<boolean>(false);
+  const [settings, setSettings] = useState<any>({});
+  const [settingsModal, setSettingsModal] = useState<boolean>(false);
+  const [settingsLoading, setSettingsLoading] = useState<boolean>(true);
+  const [settingsUpdateLoading, setSettingsUpdateLoading] =
+    useState<boolean>(false);
+  const [pointLabel, setPointLabel] = useState<any>({});
+  const [once, setOnce] = useState<boolean>(true);
+  const [map, setMap] = useState<L.Map>();
+  const [progress, setProgress] = useState<number>(0);
+  const [total, setTotal] = useState<number>(0);
+  const [date, setDate] = useState<any>({});
+  const searchVal = watch("search");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
+
+  const getSettings = () => {
+    getData("/api/settings", {})
+      .then((res) => {
+        setSettings(res.data);
+        setSettingsLoading(false);
+
+        setSettingsModal(false);
+        setSettingsUpdateLoading(false);
+      })
+      .catch((err) => {
+        setSettingsLoading(false);
+      });
+  };
+
+  const getAllPoints = () => {
+    setLoading(true);
+
+    setDeleteLoading(false);
+    setDeleteModal(false);
+    setStatusLoading(false);
+    setAddPointModal(false);
+    setAddPointLoading(false);
+    setEditModal(false);
+    setEditLoading(false);
+
+    getData("/api/points", {})
+      .then((res) => {
+        setPoints(res.data);
+        setPointsList(res.data);
+        res.data.length > 0 && setPosition([res.data[0].lat, res.data[0].lng]);
+        setLoading(false);
+        setRotateIcon(false);
+      })
+      .catch((err) => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    if (once) {
+      setOnce(false);
+      getAllPoints();
+      getSettings();
+    }
+
+    if (map) {
+      const tileLayerOffline = L.tileLayer.offline(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          attribution:
+            '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+          subdomains: "abc",
+          minZoom: 11,
+          maxZoom: 16,
+        },
+      );
+
+      tileLayerOffline.addTo(map);
+
+      const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
+        zoomlevels: [11, 12, 13, 14, 15, 16],
+        confirm(layer, succescallback) {
+          if (window.confirm(`Download ${layer._tilesforSave.length} tiles?`)) {
+            succescallback();
+          }
+        },
+        confirmRemoval(layer, successCallback) {
+          if (window.confirm("Remove all the tiles?")) {
+            successCallback();
+          }
+        },
+        saveText: `<div class="w-full h-full flex justify-center items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+        </div>`,
+        rmText: `<div class="w-full h-full flex justify-center items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+          </div>`,
+      });
+
+      controlSaveTiles.addTo(map);
+
+      let progressCounter = 0;
+      tileLayerOffline.on("savestart", (e) => {
+        progressCounter = 0;
+        setTotal(e._tilesforSave.length);
+      });
+      tileLayerOffline.on("savetileend", () => {
+        progressCounter += 1;
+        setProgress(progressCounter);
+      });
+    }
+  }, [map]);
+
+  const renderCell = (point: any, columnKey: string, id: number) => {
+    const cellValue = point[columnKey];
+
+    switch (columnKey) {
+      case "id":
+        return <span>{id}</span>;
+      case "name":
+        return (
+          <div className="flex flex-col">
+            <p className="text-bold text-sm text-gray-700">{point.name}</p>
+          </div>
+        );
+      case "lat":
+        return (
+          <div className="flex flex-col">
+            <p className="text-bold text-sm text-gray-700">{point.lat}</p>
+          </div>
+        );
+      case "lng":
+        return (
+          <div className="flex flex-col">
+            <p className="text-bold text-sm text-gray-700">{point.lng}</p>
+          </div>
+        );
+      case "frequency":
+        return (
+          <div className="flex flex-col">
+            <p className="text-bold text-sm text-gray-700">{point.frequency}</p>
+          </div>
+        );
+      case "status":
+        return (
+          <button onClick={() => changeStatusHandler(point._id)}>
+            <Chip
+              className="capitalize"
+              color={statusColorMap[point.status]}
+              size="sm"
+              variant="flat"
+            >
+              {statusLoading ? "wait..." : cellValue}
+            </Chip>
+          </button>
+        );
+      case "time":
+        return (
+          <div className="flex flex-col">
+            <p className="text-bold text-sm capitalize text-gray-700">
+              {new Date(point.date).toLocaleString()}
+            </p>
+          </div>
+        );
+      case "action":
+        return (
+          <div className="relative flex items-center gap-4">
+            <Tooltip content="edit point">
+              <button
+                onClick={() => setPointEditableData(point)}
+                className="text-default-400 cursor-pointer text-lg active:opacity-50"
+              >
+                <EditIcon />
+              </button>
+            </Tooltip>
+
+            <Tooltip color="danger" content="delete point">
+              <button
+                onClick={() => {
+                  setDeleteModal(true);
+                  setPointId(point._id);
+                }}
+                className="text-danger cursor-pointer text-lg active:opacity-50"
+              >
+                <DeleteIcon />
+              </button>
+            </Tooltip>
+          </div>
+        );
+      default:
+        return cellValue;
+    }
+  };
+
+  const addPointHandler = (data: any) => {
+    setAddPointLoading(true);
+
+    postData("/api/points", { ...data }).then(() => {
+      getAllPoints();
+      reset({ name: "", lat: "", lng: "", frequency: "" });
+    });
+  };
+
+  const deletePointHandler = () => {
+    setDeleteLoading(true);
+
+    deleteData("/api/points", { id: pointId }).then(() => {
+      getAllPoints();
+    });
+  };
+
+  const changeStatusHandler = (id: string) => {
+    setStatusLoading(true);
+
+    postData("/api/points/change-status", { id }).then(() => {
+      getAllPoints();
+    });
+  };
+
+  const setPointEditableData = (point: any) => {
+    setEditModal(true);
+
+    setPointId(point._id);
+    setValue("name", point.name);
+    setValue("lat", point.lat);
+    setValue("lng", point.lng);
+    setValue("frequency", point.frequency);
+  };
+
+  const closeEditModalHandler = () => {
+    setEditModal(false);
+    setPointId("");
+    reset({ name: "", lat: "", lng: "", frequency: "" });
+  };
+
+  const editPointHandler = (data: any) => {
+    setEditLoading(true);
+
+    postData("/api/points/update-point", { ...data, id: pointId }).then(() => {
+      getAllPoints();
+      closeEditModalHandler();
+    });
+  };
+
+  const openSettingsModal = () => {
+    setSettingsModal(true);
+    setValue("lat_settings", settings.lat);
+    setValue("lng_settings", settings.lng);
+    setValue("zoom", settings.zoom);
+  };
+
+  const updateSettingsHandler = (data: any) => {
+    setSettingsUpdateLoading(true);
+
+    postData("/api/settings", {
+      lat: data.lat_settings,
+      lng: data.lng_settings,
+      zoom: data.zoom,
+    })
+      .then(() => {
+        setSettingsUpdateLoading(false);
+        window.location.reload();
+        getSettings();
+      })
+      .catch(() => {
+        setSettingsLoading(false);
+      });
+  };
+
+  const searchPointsHandler = () => {
+    const filteredPoints = points.filter((data) =>
+      data.name.toLowerCase().includes(searchVal?.toLowerCase()),
+    );
+
+    setPointsList(filteredPoints);
+  };
+
+  const sortByDateHandler = () => {
+    const startDate = new Date(dateFormatter(date, from).start);
+    const endDate = new Date(dateFormatter(date, to).end);
+
+    const result = points.filter((point) => {
+      const date = new Date(point.date);
+      return date >= startDate && date <= endDate;
+    });
+
+    setPointsList(result);
+  };
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      {/* map & markers */}
+      <div className={`relative h-full w-full`}>
+        {loading || settingsLoading ? (
+          <div className="flex h-full w-full items-center justify-center bg-gray-50">
+            <Spinner label="please wait..." />
+          </div>
+        ) : (
+          <MapContainer
+            center={
+              settings?.lat
+                ? [settings.lat, settings.lng]
+                : [35.695246913723636, 51.41011318883557]
+            }
+            zoom={settings?.zoom ? settings?.zoom : 13}
+            scrollWheelZoom={true}
+            ref={setMap}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            {points.length > 0 &&
+              points.map(
+                (point) =>
+                  point.status === "active" && (
+                    <Marker
+                      key={point._id}
+                      icon={PointIcon}
+                      position={[point.lat, point.lng]}
+                      eventHandlers={{
+                        mouseover: () => {
+                          setPointLabel(point);
+                        },
+                        mouseout: () => {
+                          setPointLabel({});
+                        },
+                      }}
+                    >
+                      <Popup>
+                        <div className="flex w-full flex-col gap-1">
+                          <span>name: {point.name}</span>
+                          <span>lat: {point.lat}</span>
+                          <span>lng: {point.lng}</span>
+                          <span>frequency: {point.frequency}</span>
+                          <span>status: {point.status}</span>
+
+                          <div className="mt-2 flex w-full items-center justify-center gap-3">
+                            <button
+                              onClick={() => setPointEditableData(point)}
+                              className="text-default-400 cursor-pointer text-lg active:opacity-50"
+                            >
+                              <EditIcon />
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setDeleteModal(true);
+                                setPointId(point._id);
+                              }}
+                              className="text-danger cursor-pointer text-lg active:opacity-50"
+                            >
+                              <DeleteIcon />
+                            </button>
+
+                            <button
+                              onClick={() => changeStatusHandler(point._id)}
+                              className="text-warning cursor-pointer text-lg active:opacity-50"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke-width="1.5"
+                                stroke="currentColor"
+                                className="size-5"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ),
+              )}
+          </MapContainer>
+        )}
+
+        {pointLabel?.lat && (
+          <div
+            className={`absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300`}
+          >
+            <span>lat: {pointLabel?.lat}</span>
+            <span>lng: {pointLabel?.lng}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// File: src/components/map/PointIcon.tsx
+import L from "leaflet";
+
+const PointIcon = new L.Icon({
+  iconUrl: "/assets/icon.png",
+  iconRetinaUrl: "/assets/icon.png",
+  iconAnchor: undefined,
+  shadowUrl: undefined,
+  shadowSize: undefined,
+  shadowAnchor: undefined,
+  iconSize: new L.Point(60, 60),
+  className: "",
+});
+
+export { PointIcon };
+
+// File: src/components/map/EditIcon.tsx
+import React from "react";
+
+export const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height="1em"
+    role="presentation"
+    viewBox="0 0 20 20"
+    width="1em"
+    {...props}
+  >
+    <path
+      d="M11.05 3.00002L4.20835 10.2417C3.95002 10.5167 3.70002 11.0584 3.65002 11.4334L3.34169 14.1334C3.23335 15.1084 3.93335 15.775 4.90002 15.6084L7.58335 15.15C7.95835 15.0834 8.48335 14.8084 8.74168 14.525L15.5834 7.28335C16.7667 6.03335 17.3 4.60835 15.4583 2.86668C13.625 1.14168 12.2334 1.75002 11.05 3.00002Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit={10}
+      strokeWidth={1.5}
+    />
+    <path
+      d="M9.90833 4.20831C10.2667 6.50831 12.1333 8.26665 14.45 8.49998"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit={10}
+      strokeWidth={1.5}
+    />
+    <path
+      d="M2.5 18.3333H17.5"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit={10}
+      strokeWidth={1.5}
+    />
+  </svg>
+);
+
+// File: src/components/sidebar/Sidebar.tsx
+import React, { useState } from "react";
+import Image from "next/image";
+
+interface SidebarProps {
+  setAddPointModal: React.Dispatch<React.SetStateAction<boolean>>;
+  showPointList: boolean;
+  setShowPointList: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export default function Sidebar({
+  setAddPointModal,
+  showPointList,
+  setShowPointList,
+}: SidebarProps) {
+  const [openSidebar, setOpenSidebar] = useState<boolean>(false);
+
+  return (
+    <div
+      className={`${
+        openSidebar ? "min-w-60" : "min-w-16"
+      } relative transition-all duration-300`}
+    >
+      <div
+        className={`${
+          openSidebar ? "min-w-60 p-5" : "min-w-16 p-2"
+        } fixed bottom-0 flex h-full flex-col items-center gap-4 bg-indigo-100 pt-3 transition-all  duration-300`}
+      >
+        <button
+          onClick={() => setOpenSidebar(!openSidebar)}
+          className="flex size-10 items-center justify-center rounded-xl bg-indigo-200 text-indigo-600"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+            className="size-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+            />
+          </svg>
+        </button>
+
+        <div className="my-10 flex h-auto w-full items-center justify-center">
+          <Image
+            src="/assets/logo.png"
+            width={0}
+            height={0}
+            sizes="100vw"
+            className={`${openSidebar ? "w-20" : "w-10"} object-cover`}
+            alt=""
+            priority
+          />
+        </div>
+
+        <button
+          onClick={() => setAddPointModal(true)}
+          className={`${
+            openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"
+          } flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+            className={`${openSidebar ? "size-6" : "size-5"}`}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+            />
+          </svg>
+
+          {openSidebar && <span>Add new point</span>}
+        </button>
+
+        <button
+          onClick={() => setShowPointList(!showPointList)}
+          className={`${
+            openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"
+          } flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+        >
+          {showPointList ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className={`${openSidebar ? "size-6" : "size-5"}`}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+              />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className={`${openSidebar ? "size-6" : "size-5"}`}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+              />
+            </svg>
+          )}
+
+          {openSidebar && (
+            <span>
+              {showPointList ? "Hide points list" : "Show points list"}
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// File: services/API.ts
+import axios from "axios";
+
+const servicesApi = axios.create({
+  withCredentials: false,
+  timeout: 60000,
+  headers: {
+    common: {
+      Accept: "application/json",
+    },
+  },
+});
+
+interface PostDataParams {
+  [key: string]: any;
+}
+
+// post method
+const postData = async (
+  param: string,
+  data: PostDataParams,
+  withToken = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    const res = await servicesApi.post(param, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return res;
+  }
+
+  const res = await servicesApi.post(param, data);
+  return res;
+};
+
+// get method
+const getData = async (
+  param: string,
+  data: PostDataParams,
+  withToken = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    const res = await servicesApi.get(param, {
+      params: data,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return res;
+  }
+
+  const res = await servicesApi.get(param, { params: data });
+  return res;
+};
+
+// delete method
+const deleteData = async (
+  param: string,
+  data: PostDataParams,
+  withToken = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    const res = await servicesApi.delete(param, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: data,
+    });
+
+    return res;
+  }
+
+  const res = await servicesApi.delete(param, { data: data });
+  return res;
+};
+
+export { postData, getData, deleteData };
+
+// File: models/SettingsModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  lat: {
+    type: Number,
+    required: true,
+    default: 35.694523130867424,
+  },
+  lng: {
+    type: Number,
+    required: true,
+    default: 51.30922197948697,
+  },
+  zoom: {
+    type: Number,
+    required: true,
+    default: 13,
+  },
+});
+
+const model =
+  mongoose.models.SettingsModel || mongoose.model("SettingsModel", schema);
+
+export default model;
+
+// File: models/MapModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  lat: {
+    type: Number,
+    required: true,
+  },
+  lng: {
+    type: Number,
+    required: true,
+  },
+  frequency: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: String,
+    default: "active",
+  },
+  date: {
+    type: Date,
+    default: () => Date.now(),
+  },
+  deletedAt: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+});
+
+const model = mongoose.models.MapModel || mongoose.model("MapModel", schema);
+
+export default model;
+
+// File: configs/db.ts
+import mongoose from "mongoose";
+
+const connectDB = async () => {
+  try {
+    if (mongoose.connections[0].readyState) {
+      console.log("Already connected");
+      return true;
+    } else {
+      await mongoose.connect(process.env.MONGO_URL!);
+      console.log("Database connected");
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+export default connectDB;
+
