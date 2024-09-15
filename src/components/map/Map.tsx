@@ -1,28 +1,28 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.offline";
 import "leaflet/dist/leaflet.css";
 import {
+  Button,
+  Chip,
+  DateRangePicker,
+  Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Spinner,
   Table,
   TableBody,
   TableCell,
-  Tooltip,
   TableColumn,
   TableHeader,
   TableRow,
-  Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Input,
-  Spinner,
-  Chip,
-  DateRangePicker,
   TimeInput,
+  Tooltip,
 } from "@nextui-org/react";
 import { deleteData, getData, postData } from "@/services/API";
 import { PointIcon } from "./PointIcon";
@@ -47,18 +47,21 @@ const statusColorMap = {
   active: "success",
   disable: "danger",
 };
-
+interface MapProps {
+  addPointModal: boolean;
+  setAddPointModal: (value: boolean) => void;
+  showPointList: boolean;
+  setShowPointList: (value: boolean) => void;
+}
 export default function Map({
   addPointModal,
   setAddPointModal,
   showPointList,
-  setShowPointList,
-}) {
+}: MapProps) {
   const {
     register,
     handleSubmit,
     setValue,
-    resetField,
     watch,
     reset,
     formState: { errors },
@@ -76,7 +79,7 @@ export default function Map({
     },
   });
 
-  const [position, setPosition] = useState([]);
+  const [position, setPosition] = useState<[number][]>([]);
   const [loading, setLoading] = useState(true);
   const [rotateIcon, setRotateIcon] = useState(false);
   const [points, setPoints] = useState([]);
@@ -113,7 +116,7 @@ export default function Map({
         setSettingsModal(false);
         setSettingsUpdateLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         setSettingsLoading(false);
       });
   };
@@ -171,7 +174,7 @@ export default function Map({
 
       const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
         zoomlevels: [11, 12, 13, 14, 15, 16], // optional zoomlevels to save, default current zoomlevel
-        confirm(layer, succescallback) {
+        confirm(layer: any, succescallback: () => void) {
           // eslint-disable-next-line no-alert
           if (
             window.confirm(
@@ -181,7 +184,7 @@ export default function Map({
             succescallback();
           }
         },
-        confirmRemoval(layer, successCallback) {
+        confirmRemoval(layer: any, successCallback: () => void) {
           // eslint-disable-next-line no-alert
           if (window.confirm("Are you shure you want remove all the tiles?")) {
             successCallback();
@@ -223,10 +226,13 @@ export default function Map({
 
       controlSaveTiles.addTo(map);
 
-      let progress;
-      tileLayerOffline.on("savestart", (e) => {
-        progress = 0;
-        setTotal(e._tilesforSave.length);
+      let progress: number;
+      baseLayer.on("savestart", (e: L.LeafletEvent) => {
+        if (e._tilesforSave) {
+          progress = 0;
+          document.getElementById("total")!.innerHTML =
+            e._tilesforSave.length.toString();
+        }
       });
       tileLayerOffline.on("savetileend", () => {
         progress += 1;
@@ -236,7 +242,7 @@ export default function Map({
   }, [map]);
 
   // data table custom cell
-  const renderCell = (point, columnKey, id) => {
+  const renderCell = (point, columnKey, id: string) => {
     const cellValue = point[columnKey];
 
     switch (columnKey) {
@@ -296,7 +302,7 @@ export default function Map({
             <Tooltip content="edit point">
               <button
                 onClick={() => setPointEditableData(point)}
-                className="text-default-400 cursor-pointer text-lg active:opacity-50"
+                className="cursor-pointer text-lg text-default-400 active:opacity-50"
               >
                 <EditIcon />
               </button>
@@ -308,7 +314,7 @@ export default function Map({
                   setDeleteModal(true);
                   setPointId(point._id);
                 }}
-                className="text-danger cursor-pointer text-lg active:opacity-50"
+                className="cursor-pointer text-lg text-danger active:opacity-50"
               >
                 <DeleteIcon />
               </button>
@@ -433,7 +439,7 @@ export default function Map({
   };
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex size-full flex-col">
       {/* add new point modal */}
       <Modal
         classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
@@ -453,7 +459,7 @@ export default function Map({
                     label="Name"
                     labelPlacement="outside"
                     placeholder="Enter point name"
-                    isInvalid={errors.name ? true : false}
+                    isInvalid={!!errors.name}
                     errorMessage="name is required"
                     {...register("name", { required: true })}
                   />
@@ -463,7 +469,7 @@ export default function Map({
                     label="Lat"
                     labelPlacement="outside"
                     placeholder="Enter point lat"
-                    isInvalid={errors.lat ? true : false}
+                    isInvalid={!!errors.lat}
                     errorMessage="lat is required"
                     {...register("lat", { required: true })}
                   />
@@ -473,7 +479,7 @@ export default function Map({
                     label="Lng"
                     labelPlacement="outside"
                     placeholder="Enter point lng"
-                    isInvalid={errors.lng ? true : false}
+                    isInvalid={!!errors.lng}
                     errorMessage="lng is required"
                     {...register("lng", { required: true })}
                   />
@@ -483,7 +489,7 @@ export default function Map({
                     label="Frequency"
                     labelPlacement="outside"
                     placeholder="Enter point frequency"
-                    isInvalid={errors.frequency ? true : false}
+                    isInvalid={!!errors.frequency}
                     errorMessage="frequency is required"
                     {...register("frequency", { required: true })}
                   />
@@ -532,7 +538,7 @@ export default function Map({
                     label="Name"
                     labelPlacement="outside"
                     placeholder="Enter point name"
-                    isInvalid={errors.name ? true : false}
+                    isInvalid={!!errors.name}
                     errorMessage="name is required"
                     {...register("name", { required: true })}
                   />
@@ -542,7 +548,7 @@ export default function Map({
                     label="Lat"
                     labelPlacement="outside"
                     placeholder="Enter point lat"
-                    isInvalid={errors.lat ? true : false}
+                    isInvalid={!!errors.lat}
                     errorMessage="lat is required"
                     {...register("lat", { required: true })}
                   />
@@ -552,7 +558,7 @@ export default function Map({
                     label="Lng"
                     labelPlacement="outside"
                     placeholder="Enter point lng"
-                    isInvalid={errors.lng ? true : false}
+                    isInvalid={!!errors.lng}
                     errorMessage="lng is required"
                     {...register("lng", { required: true })}
                   />
@@ -562,7 +568,7 @@ export default function Map({
                     label="Frequency"
                     labelPlacement="outside"
                     placeholder="Enter point frequency"
-                    isInvalid={errors.frequency ? true : false}
+                    isInvalid={!!errors.frequency}
                     errorMessage="frequency is required"
                     {...register("frequency", { required: true })}
                   />
@@ -669,7 +675,7 @@ export default function Map({
                     label="Lat"
                     labelPlacement="outside"
                     placeholder="Enter point lat"
-                    isInvalid={errors.lat_settings ? true : false}
+                    isInvalid={!!errors.lat_settings}
                     errorMessage="lat is required"
                     {...register("lat_settings", { required: true })}
                   />
@@ -679,7 +685,7 @@ export default function Map({
                     label="Lng"
                     labelPlacement="outside"
                     placeholder="Enter point lng"
-                    isInvalid={errors.lng_settings ? true : false}
+                    isInvalid={!!errors.lng_settings}
                     errorMessage="lng is required"
                     {...register("lng_settings", { required: true })}
                   />
@@ -689,7 +695,7 @@ export default function Map({
                     label="Zoom"
                     labelPlacement="outside"
                     placeholder="Enter map zoom"
-                    isInvalid={errors.zoom ? true : false}
+                    isInvalid={!!errors.zoom}
                     errorMessage="zoom is required"
                     {...register("zoom", { required: true })}
                   />
@@ -757,9 +763,9 @@ export default function Map({
       </Modal>
 
       {/* map & markers */}
-      <div className={`relative h-full w-full`}>
+      <div className={"relative size-full"}>
         {loading || settingsLoading ? (
-          <div className="flex h-full w-full items-center justify-center bg-gray-50">
+          <div className="flex size-full items-center justify-center bg-gray-50">
             <Spinner label="please wait..." />
           </div>
         ) : (
@@ -807,7 +813,7 @@ export default function Map({
                           <div className="mt-2 flex w-full items-center justify-center gap-3">
                             <button
                               onClick={() => setPointEditableData(point)}
-                              className="text-default-400 cursor-pointer text-lg active:opacity-50"
+                              className="cursor-pointer text-lg text-default-400 active:opacity-50"
                             >
                               <EditIcon />
                             </button>
@@ -817,26 +823,26 @@ export default function Map({
                                 setDeleteModal(true);
                                 setPointId(point._id);
                               }}
-                              className="text-danger cursor-pointer text-lg active:opacity-50"
+                              className="cursor-pointer text-lg text-danger active:opacity-50"
                             >
                               <DeleteIcon />
                             </button>
 
                             <button
                               onClick={() => changeStatusHandler(point._id)}
-                              className="text-warning cursor-pointer text-lg active:opacity-50"
+                              className="cursor-pointer text-lg text-warning active:opacity-50"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="none"
                                 viewBox="0 0 24 24"
-                                stroke-width="1.5"
+                                strokeWidth="1.5"
                                 stroke="currentColor"
-                                class="size-5"
+                                className="size-5"
                               >
                                 <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
                                   d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
                                 />
                               </svg>
@@ -852,7 +858,9 @@ export default function Map({
 
         {pointLabel?.lat && (
           <div
-            className={`absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300`}
+            className={
+              "absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300"
+            }
           >
             <span>lat: {pointLabel?.lat}</span>
             <span>lng: {pointLabel?.lng}</span>
@@ -862,7 +870,7 @@ export default function Map({
 
       <div
         className={`mt-3 flex w-full flex-col ${
-          showPointList ? "h-[40%]" : "h-0 overflow-hidden"
+          showPointList ? "h-2/5" : "h-0 overflow-hidden"
         } transition-all duration-300`}
       >
         {/* toolbar */}
@@ -989,7 +997,7 @@ export default function Map({
             {/* settings */}
             <button
               onClick={openSettingsModal}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-200 outline-none transition-all duration-300 active:scale-95"
+              className="flex size-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-200 outline-none transition-all duration-300 active:scale-95"
             >
               {settingsLoading ? (
                 <Spinner size="sm" color="white" />
@@ -1023,7 +1031,7 @@ export default function Map({
 
                 getAllPoints();
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
+              className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

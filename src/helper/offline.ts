@@ -1,12 +1,15 @@
 /* global L, LeafletOffline, $ */
+
 const urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-function showTileList() {
-  LeafletOffline.getStorageInfo(urlTemplate).then((r) => {
+// Show tile list function
+function showTileList(): void {
+  // @ts-expect-error the
+  LeafletOffline.getStorageInfo(urlTemplate).then((r: any[]) => {
     const list = document.getElementById("tileinforows");
     if (list) {
       list.innerHTML = "";
-      r.forEach((tile, i) => {
+      r.forEach((tile: any, i: number) => {
         const createdAt = new Date(tile.createdAt);
         list.insertAdjacentHTML(
           "beforeend",
@@ -17,52 +20,61 @@ function showTileList() {
   });
 }
 
+// @ts-expect-error the
 $("#storageModal").on("show.bs.modal", showTileList);
 
+// Initialize map and base layer
 const map = L.map("map");
 const baseLayer = L.tileLayer
   .offline(urlTemplate, {
     attribution: "Map data {attribution.OpenStreetMap}",
     subdomains: "abc",
     minZoom: 13,
-  })
+  } as L.TileLayerOptions)
   .addTo(map);
+
+// Set up tile saving controls
 const control = L.control.savetiles(baseLayer, {
   zoomlevels: [13, 16],
-  confirm: (layer, successCallback) => {
+  confirm: (layer: any, successCallback: () => void): void => {
     if (window.confirm(`Save ${layer._tilesforSave.length}`)) {
       successCallback();
     }
   },
-  confirmRemoval: (layer, successCallback) => {
+  confirmRemoval: (layer: any, successCallback: () => void): void => {
     if (window.confirm("Remove all the tiles?")) {
       successCallback();
     }
   },
-  saveText:
-    '<i class="fa fa-download" aria-hidden="true" title="Save tiles"></i>',
-  rmText:
-    '<i class="fa fa-trash" aria-hidden="true"  title="Remove tiles"></i>',
 });
 
 control.addTo(map);
 
+// Set map view
 map.setView({ lat: 51.985, lng: 5 }, 16);
+
+// Add layers to map
 const layerswitcher = L.control
+  // @ts-expect-error the
   .layers({ "osm (offline)": baseLayer }, null, { collapsed: false })
   .addTo(map);
 
+// GeoJSON storage layer
 let storageLayer: L.GeoJSON;
 
-const getGeoJsonData = () =>
-  LeafletOffline.getStorageInfo(urlTemplate).then((data) =>
+// Get stored GeoJSON data
+const getGeoJsonData = (): Promise<L.GeoJSON> =>
+  // @ts-expect-error the
+  LeafletOffline.getStorageInfo(urlTemplate).then((data: any) =>
+    // @ts-expect-error the
     LeafletOffline.getStoredTilesAsJson(baseLayer, data),
   );
 
-const addStorageLayer = () => {
-  getGeoJsonData().then((geojson) => {
+// Add storage layer to the map
+const addStorageLayer = (): void => {
+  getGeoJsonData().then((geojson: any) => {
     storageLayer = L.geoJSON(geojson).bindPopup(
-      (clickedLayer) => clickedLayer.feature.properties.key,
+      (clickedLayer: any) => clickedLayer.feature.properties.key,
     );
     layerswitcher.addOverlay(storageLayer, "stored tiles");
   });
@@ -70,22 +82,25 @@ const addStorageLayer = () => {
 
 addStorageLayer();
 
+// Event listener to remove tiles
 document.getElementById("remove_tiles")?.addEventListener("click", () => {
-  control._rmTiles();
+  (control as any)._rmTiles(); // Assuming _rmTiles is a method without typing in the library
 });
 
-baseLayer.on("storagesize", (e) => {
+// Update storage size event
+baseLayer.on("storagesize", (e: any) => {
   document.getElementById("storage")!.innerHTML = e.storagesize.toString();
   if (storageLayer) {
     storageLayer.clearLayers();
-    getGeoJsonData().then((data) => {
+    getGeoJsonData().then((data: any) => {
       storageLayer.addData(data);
     });
   }
 });
 
+// Progress tracking for saving tiles
 let progress: number;
-baseLayer.on("savestart", (e) => {
+baseLayer.on("savestart", (e: any) => {
   progress = 0;
   document.getElementById("total")!.innerHTML =
     e._tilesforSave.length.toString();
