@@ -1,20 +1,13 @@
 // File: src/app/providers.tsx
 "use client";
-
 import { NextUIProvider } from "@nextui-org/react";
-import { ReactNode } from "react";
 
-interface ProvidersProps {
-  children: ReactNode;
-}
-
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return <NextUIProvider>{children}</NextUIProvider>;
 }
 
 // File: src/app/layout.tsx
 import { Inter } from "next/font/google";
-import { ReactNode } from "react";
 import { Providers } from "./providers";
 import "./globals.css";
 import "../css/style.css";
@@ -26,11 +19,11 @@ export const metadata = {
   description: "Map Selector by shahyad karimi",
 };
 
-interface RootLayoutProps {
-  children: ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -48,24 +41,16 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     await connectDB();
-
     const body = await req.json();
-
     const { lat, lng, zoom } = body;
 
     await SettingsModel.findOneAndUpdate(
       { _id: "66c3774a9757762530e4bfd1" },
-      {
-        $set: {
-          lat,
-          lng,
-          zoom,
-        },
-      },
+      { $set: { lat, lng, zoom } },
     );
 
     return NextResponse.json(
-      { message: "Point updated successfully !" },
+      { message: "Point updated successfully!" },
       { status: 200 },
     );
   } catch (err) {
@@ -76,12 +61,10 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     await connectDB();
-
     const settings = await SettingsModel.findOne(
       { _id: "66c3774a9757762530e4bfd1" },
       "-__v",
     );
-
     return NextResponse.json(settings);
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
@@ -96,9 +79,7 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     await connectDB();
-
     const body = await req.json();
-
     const { lat, lng, date, deletedAt, name, frequency } = body;
 
     const points = await MapModel.create({
@@ -109,9 +90,8 @@ export async function POST(req: Request) {
       frequency,
       deletedAt,
     });
-
     return NextResponse.json(
-      { message: "Point created successfully !", points },
+      { message: "Point created successfully!", points },
       { status: 200 },
     );
   } catch (err) {
@@ -122,9 +102,7 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     await connectDB();
-
     const points = await MapModel.find({ deletedAt: null }, "-__v");
-
     return NextResponse.json(points);
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
@@ -134,20 +112,14 @@ export async function GET() {
 export async function DELETE(req: Request) {
   try {
     await connectDB();
-
     const body = await req.json();
     const { id } = body;
 
     await MapModel.findOneAndUpdate(
       { _id: id },
-      {
-        $set: {
-          deletedAt: new Date(),
-        },
-      },
+      { $set: { deletedAt: new Date() } },
     );
-
-    return NextResponse.json({ message: "Point deleted successfully !" });
+    return NextResponse.json({ message: "Point deleted successfully!" });
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
   }
@@ -161,12 +133,10 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     await connectDB();
-
     const body = await req.json();
     const { search } = body;
 
     const points = await MapModel.find({ name: search, deletedAt: null });
-
     return NextResponse.json(points);
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
@@ -181,23 +151,14 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     await connectDB();
-
     const body = await req.json();
     const { name, lat, lng, frequency, id } = body;
 
     await MapModel.findOneAndUpdate(
       { _id: id },
-      {
-        $set: {
-          name,
-          lat,
-          lng,
-          frequency,
-        },
-      },
+      { $set: { name, lat, lng, frequency } },
     );
-
-    return NextResponse.json({ message: "Point updated !" });
+    return NextResponse.json({ message: "Point updated!" });
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
   }
@@ -211,22 +172,16 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     await connectDB();
-
     const body = await req.json();
     const { id } = body;
 
     const point = await MapModel.findOne({ _id: id });
-
     await MapModel.findOneAndUpdate(
       { _id: id },
-      {
-        $set: {
-          status: point.status === "active" ? "disable" : "active",
-        },
-      },
+      { $set: { status: point?.status === "active" ? "disable" : "active" } },
     );
 
-    return NextResponse.json({ message: "Point status updated !" });
+    return NextResponse.json({ message: "Point status updated!" });
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
   }
@@ -270,60 +225,44 @@ export default function Home() {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 // File: src/helper/helper.ts
-interface Date {
-  start: {
-    day: number;
-    month: number;
-    year: number;
-  };
-  end: {
-    day: number;
-    month: number;
-    year: number;
-  };
-}
-
-interface Time {
-  hour: number;
-  minute: number;
-}
-
-const dateFormatter = (date: Date, time: Time) => {
+export const dateFormatter = (
+  date: {
+    start: { day: number; month: number; year: number };
+    end: { day: number; month: number; year: number };
+  },
+  time: { hour: number; minute: number },
+) => {
   return {
     start: `${date.start.month}/${date.start.day}/${date.start.year} ${time.hour}:${time.minute}`,
     end: `${date.end.month}/${date.end.day}/${date.end.year} ${time.hour}:${time.minute}`,
   };
 };
 
-export { dateFormatter };
-
 // File: src/helper/offline.ts
-/* global L, LeafletOffline, $  */
+/* global L, LeafletOffline, $ */
 const urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 function showTileList() {
   LeafletOffline.getStorageInfo(urlTemplate).then((r) => {
-    const list = document.getElementById("tileinforows")!;
-    list.innerHTML = "";
-    for (let i = 0; i < r.length; i += 1) {
-      const createdAt = new Date(r[i].createdAt);
-      list.insertAdjacentHTML(
-        "beforeend",
-        `<tr><td>${i}</td><td>${r[i].url}</td><td>${
-          r[i].key
-        }</td><td>${createdAt.toDateString()}</td></tr>`,
-      );
+    const list = document.getElementById("tileinforows");
+    if (list) {
+      list.innerHTML = "";
+      r.forEach((tile, i) => {
+        const createdAt = new Date(tile.createdAt);
+        list.insertAdjacentHTML(
+          "beforeend",
+          `<tr><td>${i}</td><td>${tile.url}</td><td>${tile.key}</td><td>${createdAt.toDateString()}</td></tr>`,
+        );
+      });
     }
   });
 }
 
-$("#storageModal").on("show.bs.modal", () => {
-  showTileList();
-});
+$("#storageModal").on("show.bs.modal", showTileList);
 
 const map = L.map("map");
-// offline baselayer, will use offline source if available
 const baseLayer = L.tileLayer
   .offline(urlTemplate, {
     attribution: "Map data {attribution.OpenStreetMap}",
@@ -331,17 +270,14 @@ const baseLayer = L.tileLayer
     minZoom: 13,
   })
   .addTo(map);
-// add buttons to save tiles in area viewed
 const control = L.control.savetiles(baseLayer, {
-  zoomlevels: [13, 16], // optional zoomlevels to save, default current zoomlevel
-  confirm(layer, succescallback) {
-    // eslint-disable-next-line no-alert
+  zoomlevels: [13, 16],
+  confirm: (layer, successCallback) => {
     if (window.confirm(`Save ${layer._tilesforSave.length}`)) {
-      succescallback();
+      successCallback();
     }
   },
-  confirmRemoval(layer, successCallback) {
-    // eslint-disable-next-line no-alert
+  confirmRemoval: (layer, successCallback) => {
     if (window.confirm("Remove all the tiles?")) {
       successCallback();
     }
@@ -351,24 +287,12 @@ const control = L.control.savetiles(baseLayer, {
   rmText:
     '<i class="fa fa-trash" aria-hidden="true"  title="Remove tiles"></i>',
 });
+
 control.addTo(map);
 
-map.setView(
-  {
-    lat: 51.985,
-    lng: 5,
-  },
-  16,
-);
-// layer switcher control
+map.setView({ lat: 51.985, lng: 5 }, 16);
 const layerswitcher = L.control
-  .layers(
-    {
-      "osm (offline)": baseLayer,
-    },
-    null,
-    { collapsed: false },
-  )
+  .layers({ "osm (offline)": baseLayer }, null, { collapsed: false })
   .addTo(map);
 
 let storageLayer: L.GeoJSON;
@@ -389,11 +313,12 @@ const addStorageLayer = () => {
 
 addStorageLayer();
 
-document.getElementById("remove_tiles")!.addEventListener("click", () => {
+document.getElementById("remove_tiles")?.addEventListener("click", () => {
   control._rmTiles();
 });
+
 baseLayer.on("storagesize", (e) => {
-  document.getElementById("storage")!.innerHTML = e.storagesize;
+  document.getElementById("storage")!.innerHTML = e.storagesize.toString();
   if (storageLayer) {
     storageLayer.clearLayers();
     getGeoJsonData().then((data) => {
@@ -402,15 +327,15 @@ baseLayer.on("storagesize", (e) => {
   }
 });
 
-// events while saving a tile layer
-let progress = 0;
+let progress: number;
 baseLayer.on("savestart", (e) => {
   progress = 0;
-  document.getElementById("total")!.innerHTML = e._tilesforSave.length;
+  document.getElementById("total")!.innerHTML =
+    e._tilesforSave.length.toString();
 });
 baseLayer.on("savetileend", () => {
   progress += 1;
-  document.getElementById("progress")!.innerHTML = progress;
+  document.getElementById("progress")!.innerHTML = progress.toString();
 });
 
 // File: src/css/style.css
@@ -437,10 +362,11 @@ baseLayer.on("savetileend", () => {
 .leaflet-right {
   display: none;
 }
+
 // File: src/components/map/DeleteIcon.tsx
 import React from "react";
 
-export const DeleteIcon = (props: React.SVGProps<SVGSVGElement>) => (
+export const DeleteIcon = () => (
   <svg
     aria-hidden="true"
     fill="none"
@@ -449,7 +375,6 @@ export const DeleteIcon = (props: React.SVGProps<SVGSVGElement>) => (
     role="presentation"
     viewBox="0 0 20 20"
     width="1em"
-    {...props}
   >
     <path
       d="M17.5 4.98332C14.725 4.70832 11.9333 4.56665 9.15 4.56665C7.5 4.56665 5.85 4.64998 4.2 4.81665L2.5 4.98332"
@@ -523,13 +448,7 @@ import { EditIcon } from "./EditIcon";
 import { DeleteIcon } from "./DeleteIcon";
 import { dateFormatter } from "@/helper/helper";
 
-interface MapProps {
-  addPointModal: boolean;
-  setAddPointModal: React.Dispatch<React.SetStateAction<boolean>>;
-  showPointList: boolean;
-  setShowPointList: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
+// table columns
 const columns = [
   { name: "id", uid: "id" },
   { name: "name", uid: "name" },
@@ -551,7 +470,7 @@ export default function Map({
   setAddPointModal,
   showPointList,
   setShowPointList,
-}: MapProps) {
+}) {
   const {
     register,
     handleSubmit,
@@ -574,39 +493,40 @@ export default function Map({
     },
   });
 
-  const [position, setPosition] = useState<number[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [rotateIcon, setRotateIcon] = useState<boolean>(false);
-  const [points, setPoints] = useState<any[]>([]);
-  const [pointsList, setPointsList] = useState<any[]>([]);
-  const [addPointLoading, setAddPointLoading] = useState<boolean>(false);
-  const [deleteModal, setDeleteModal] = useState<boolean>(false);
-  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
-  const [pointId, setPointId] = useState<string>("");
-  const [statusLoading, setStatusLoading] = useState<boolean>(false);
-  const [editModal, setEditModal] = useState<boolean>(false);
-  const [editLoading, setEditLoading] = useState<boolean>(false);
-  const [settings, setSettings] = useState<any>({});
-  const [settingsModal, setSettingsModal] = useState<boolean>(false);
-  const [settingsLoading, setSettingsLoading] = useState<boolean>(true);
-  const [settingsUpdateLoading, setSettingsUpdateLoading] =
-    useState<boolean>(false);
-  const [pointLabel, setPointLabel] = useState<any>({});
-  const [once, setOnce] = useState<boolean>(true);
-  const [map, setMap] = useState<L.Map>();
-  const [progress, setProgress] = useState<number>(0);
-  const [total, setTotal] = useState<number>(0);
-  const [date, setDate] = useState<any>({});
+  const [position, setPosition] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [rotateIcon, setRotateIcon] = useState(false);
+  const [points, setPoints] = useState([]);
+  const [pointsList, setPointsList] = useState([]);
+  const [addPointLoading, setAddPointLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pointId, setPointId] = useState("");
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [editModal, setEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [settings, setSettings] = useState({});
+  const [settingsModal, setSettingsModal] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsUpdateLoading, setSettingsUpdateLoading] = useState(false);
+  const [pointLabel, setPointLabel] = useState({});
+  const [once, setOnce] = useState(true);
+  const [map, setMap] = useState();
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [date, setDate] = useState({});
   const searchVal = watch("search");
-  const [from, setFrom] = useState<string>("");
-  const [to, setTo] = useState<string>("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
+  // get all points
   const getSettings = () => {
     getData("/api/settings", {})
       .then((res) => {
         setSettings(res.data);
         setSettingsLoading(false);
 
+        // action after update
         setSettingsModal(false);
         setSettingsUpdateLoading(false);
       })
@@ -615,9 +535,11 @@ export default function Map({
       });
   };
 
+  // get all points
   const getAllPoints = () => {
     setLoading(true);
 
+    // action after updates(add, edit, change status & delete points)
     setDeleteLoading(false);
     setDeleteModal(false);
     setStatusLoading(false);
@@ -635,6 +557,7 @@ export default function Map({
         setRotateIcon(false);
       })
       .catch((err) => {
+        console.log(err);
         setLoading(false);
       });
   };
@@ -642,7 +565,10 @@ export default function Map({
   useEffect(() => {
     if (once) {
       setOnce(false);
+      // get all points
       getAllPoints();
+
+      // get settings data
       getSettings();
     }
 
@@ -661,44 +587,73 @@ export default function Map({
       tileLayerOffline.addTo(map);
 
       const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
-        zoomlevels: [11, 12, 13, 14, 15, 16],
+        zoomlevels: [11, 12, 13, 14, 15, 16], // optional zoomlevels to save, default current zoomlevel
         confirm(layer, succescallback) {
-          if (window.confirm(`Download ${layer._tilesforSave.length} tiles?`)) {
+          // eslint-disable-next-line no-alert
+          if (
+            window.confirm(
+              `Are you shure you want download ${layer._tilesforSave.length} tiles ?`,
+            )
+          ) {
             succescallback();
           }
         },
         confirmRemoval(layer, successCallback) {
-          if (window.confirm("Remove all the tiles?")) {
+          // eslint-disable-next-line no-alert
+          if (window.confirm("Are you shure you want remove all the tiles?")) {
             successCallback();
           }
         },
         saveText: `<div class="w-full h-full flex justify-center items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+            />
           </svg>
         </div>`,
         rmText: `<div class="w-full h-full flex justify-center items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+              />
             </svg>
           </div>`,
       });
 
       controlSaveTiles.addTo(map);
 
-      let progressCounter = 0;
+      let progress;
       tileLayerOffline.on("savestart", (e) => {
-        progressCounter = 0;
+        progress = 0;
         setTotal(e._tilesforSave.length);
       });
       tileLayerOffline.on("savetileend", () => {
-        progressCounter += 1;
-        setProgress(progressCounter);
+        progress += 1;
+        setProgress(progress);
       });
     }
   }, [map]);
 
-  const renderCell = (point: any, columnKey: string, id: number) => {
+  // data table custom cell
+  const renderCell = (point, columnKey, id) => {
     const cellValue = point[columnKey];
 
     switch (columnKey) {
@@ -710,6 +665,7 @@ export default function Map({
             <p className="text-bold text-sm text-gray-700">{point.name}</p>
           </div>
         );
+
       case "lat":
         return (
           <div className="flex flex-col">
@@ -722,12 +678,13 @@ export default function Map({
             <p className="text-bold text-sm text-gray-700">{point.lng}</p>
           </div>
         );
-      case "frequency":
+      case "z":
         return (
           <div className="flex flex-col">
             <p className="text-bold text-sm text-gray-700">{point.frequency}</p>
           </div>
         );
+
       case "status":
         return (
           <button onClick={() => changeStatusHandler(point._id)}>
@@ -741,6 +698,7 @@ export default function Map({
             </Chip>
           </button>
         );
+
       case "time":
         return (
           <div className="flex flex-col">
@@ -779,32 +737,39 @@ export default function Map({
     }
   };
 
-  const addPointHandler = (data: any) => {
+  // add point handler
+  const addPointHandler = (data) => {
     setAddPointLoading(true);
 
-    postData("/api/points", { ...data }).then(() => {
+    postData("/api/points", { ...data }).then((res) => {
+      // refresh point data table
       getAllPoints();
       reset({ name: "", lat: "", lng: "", frequency: "" });
     });
   };
 
+  // delete single point
   const deletePointHandler = () => {
     setDeleteLoading(true);
 
-    deleteData("/api/points", { id: pointId }).then(() => {
+    deleteData("/api/points", { id: pointId }).then((res) => {
+      // refresh point data table
       getAllPoints();
     });
   };
 
-  const changeStatusHandler = (id: string) => {
+  // change point status, show in map or not
+  const changeStatusHandler = (id) => {
     setStatusLoading(true);
 
-    postData("/api/points/change-status", { id }).then(() => {
+    postData("/api/points/change-status", { id }).then((res) => {
+      // refresh point data table
       getAllPoints();
     });
   };
 
-  const setPointEditableData = (point: any) => {
+  // set current data in inputes
+  const setPointEditableData = (point) => {
     setEditModal(true);
 
     setPointId(point._id);
@@ -814,21 +779,29 @@ export default function Map({
     setValue("frequency", point.frequency);
   };
 
+  // close edit modal & clear inputes
   const closeEditModalHandler = () => {
     setEditModal(false);
     setPointId("");
     reset({ name: "", lat: "", lng: "", frequency: "" });
   };
 
-  const editPointHandler = (data: any) => {
+  // edit point handler
+  const editPointHandler = (data) => {
     setEditLoading(true);
 
-    postData("/api/points/update-point", { ...data, id: pointId }).then(() => {
-      getAllPoints();
-      closeEditModalHandler();
-    });
+    postData("/api/points/update-point", { ...data, id: pointId }).then(
+      (res) => {
+        // refresh point data table
+        getAllPoints();
+
+        // close modal & clear inputes
+        closeEditModalHandler();
+      },
+    );
   };
 
+  //open settings modal & set defualt data in settings input
   const openSettingsModal = () => {
     setSettingsModal(true);
     setValue("lat_settings", settings.lat);
@@ -836,7 +809,8 @@ export default function Map({
     setValue("zoom", settings.zoom);
   };
 
-  const updateSettingsHandler = (data: any) => {
+  // update settings data handler
+  const updateSettingsHandler = (data) => {
     setSettingsUpdateLoading(true);
 
     postData("/api/settings", {
@@ -844,16 +818,17 @@ export default function Map({
       lng: data.lng_settings,
       zoom: data.zoom,
     })
-      .then(() => {
+      .then((res) => {
         setSettingsUpdateLoading(false);
         window.location.reload();
         getSettings();
       })
-      .catch(() => {
+      .catch((err) => {
         setSettingsLoading(false);
       });
   };
 
+  // search points
   const searchPointsHandler = () => {
     const filteredPoints = points.filter((data) =>
       data.name.toLowerCase().includes(searchVal?.toLowerCase()),
@@ -876,6 +851,328 @@ export default function Map({
 
   return (
     <div className="flex h-full w-full flex-col">
+      {/* add new point modal */}
+      <Modal
+        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
+        isOpen={addPointModal}
+        onClose={() => setAddPointModal(false)}
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Add new point
+              </ModalHeader>
+              <ModalBody>
+                <div className="flex w-full flex-col gap-4">
+                  <Input
+                    isRequired
+                    label="Name"
+                    labelPlacement="outside"
+                    placeholder="Enter point name"
+                    isInvalid={errors.name ? true : false}
+                    errorMessage="name is required"
+                    {...register("name", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Lat"
+                    labelPlacement="outside"
+                    placeholder="Enter point lat"
+                    isInvalid={errors.lat ? true : false}
+                    errorMessage="lat is required"
+                    {...register("lat", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Lng"
+                    labelPlacement="outside"
+                    placeholder="Enter point lng"
+                    isInvalid={errors.lng ? true : false}
+                    errorMessage="lng is required"
+                    {...register("lng", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Frequency"
+                    labelPlacement="outside"
+                    placeholder="Enter point frequency"
+                    isInvalid={errors.frequency ? true : false}
+                    errorMessage="frequency is required"
+                    {...register("frequency", { required: true })}
+                  />
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <div className="flex w-full justify-center gap-4">
+                  <Button
+                    color="danger"
+                    variant="light"
+                    onClick={() => setAddPointModal(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    isLoading={addPointLoading}
+                    variant="shadow"
+                    className="bg-green-600 text-white shadow-green-200"
+                    onClick={handleSubmit(addPointHandler)}
+                  >
+                    Add point
+                  </Button>
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* edit point modal */}
+      <Modal
+        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
+        isOpen={editModal}
+        onClose={closeEditModalHandler}
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Edit Point
+              </ModalHeader>
+              <ModalBody>
+                <div className="flex w-full flex-col gap-4">
+                  <Input
+                    isRequired
+                    label="Name"
+                    labelPlacement="outside"
+                    placeholder="Enter point name"
+                    isInvalid={errors.name ? true : false}
+                    errorMessage="name is required"
+                    {...register("name", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Lat"
+                    labelPlacement="outside"
+                    placeholder="Enter point lat"
+                    isInvalid={errors.lat ? true : false}
+                    errorMessage="lat is required"
+                    {...register("lat", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Lng"
+                    labelPlacement="outside"
+                    placeholder="Enter point lng"
+                    isInvalid={errors.lng ? true : false}
+                    errorMessage="lng is required"
+                    {...register("lng", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Frequency"
+                    labelPlacement="outside"
+                    placeholder="Enter point frequency"
+                    isInvalid={errors.frequency ? true : false}
+                    errorMessage="frequency is required"
+                    {...register("frequency", { required: true })}
+                  />
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <div className="flex w-full justify-center gap-4">
+                  <Button
+                    color="danger"
+                    variant="light"
+                    onClick={closeEditModalHandler}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    isLoading={editLoading}
+                    variant="shadow"
+                    className="bg-green-600 text-white shadow-green-200"
+                    onClick={handleSubmit(editPointHandler)}
+                  >
+                    Edit point
+                  </Button>
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* delete point modal */}
+      <Modal
+        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
+        isOpen={deleteModal}
+        size="xs"
+        onClose={() => setDeleteModal(false)}
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Delete point
+              </ModalHeader>
+              <ModalBody>
+                <div className="flex w-full gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="size-7 text-red-600"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                    />
+                  </svg>
+
+                  <span>Are you sure you want to delete this point?</span>
+                </div>
+              </ModalBody>
+
+              <ModalFooter>
+                <div className="flex w-full justify-center gap-4">
+                  <Button
+                    color="danger"
+                    variant="light"
+                    onPress={() => setDeleteModal(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    isLoading={deleteLoading}
+                    variant="shadow"
+                    className="bg-red-600 text-white shadow-red-200"
+                    onPress={deletePointHandler}
+                  >
+                    Delete point
+                  </Button>
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* settings modal */}
+      <Modal
+        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
+        isOpen={settingsModal}
+        onClose={() => setSettingsModal(false)}
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Settings
+              </ModalHeader>
+              <ModalBody>
+                <div className="flex w-full flex-col gap-4">
+                  <Input
+                    isRequired
+                    label="Lat"
+                    labelPlacement="outside"
+                    placeholder="Enter point lat"
+                    isInvalid={errors.lat_settings ? true : false}
+                    errorMessage="lat is required"
+                    {...register("lat_settings", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Lng"
+                    labelPlacement="outside"
+                    placeholder="Enter point lng"
+                    isInvalid={errors.lng_settings ? true : false}
+                    errorMessage="lng is required"
+                    {...register("lng_settings", { required: true })}
+                  />
+
+                  <Input
+                    isRequired
+                    label="Zoom"
+                    labelPlacement="outside"
+                    placeholder="Enter map zoom"
+                    isInvalid={errors.zoom ? true : false}
+                    errorMessage="zoom is required"
+                    {...register("zoom", { required: true })}
+                  />
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <div className="flex w-full justify-center gap-4">
+                  <Button
+                    color="danger"
+                    variant="light"
+                    onClick={() => setSettingsModal(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    isLoading={settingsUpdateLoading}
+                    variant="shadow"
+                    className="bg-green-600 text-white shadow-green-200"
+                    onClick={handleSubmit(updateSettingsHandler)}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* download tiles modal */}
+      <Modal
+        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
+        isOpen={progress > 0 && total > 0}
+        onClose={progress === total}
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Tiles Downloading
+              </ModalHeader>
+              <ModalBody>
+                <div className="flex w-full items-center justify-between gap-2 text-sm">
+                  <span>Total Tiles : {total}</span>
+                  <span>Downloaded Tiles : {progress}</span>
+
+                  {/* <div className="w-full h-5 rounded-full bg-gray-200">
+                    <div
+                      style={{ width: `${total / progress}%` }}
+                      className="text-xs text-white h-full bg-indigo-600 rounded-full flex justify-center items-center"
+                    >
+                      {progress}%
+                    </div>
+                  </div> */}
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <div className="flex w-full justify-center gap-4">
+                  <Spinner size="" label="Please wait..." />
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
       {/* map & markers */}
       <div className={`relative h-full w-full`}>
         {loading || settingsLoading ? (
@@ -907,10 +1204,11 @@ export default function Map({
                       icon={PointIcon}
                       position={[point.lat, point.lng]}
                       eventHandlers={{
-                        mouseover: () => {
+                        mouseover: (e) => {
                           setPointLabel(point);
                         },
-                        mouseout: () => {
+
+                        mouseout: (e) => {
                           setPointLabel({});
                         },
                       }}
@@ -951,7 +1249,7 @@ export default function Map({
                                 viewBox="0 0 24 24"
                                 stroke-width="1.5"
                                 stroke="currentColor"
-                                className="size-5"
+                                class="size-5"
                               >
                                 <path
                                   stroke-linecap="round"
@@ -978,6 +1276,224 @@ export default function Map({
           </div>
         )}
       </div>
+
+      <div
+        className={`mt-3 flex w-full flex-col ${
+          showPointList ? "h-[40%]" : "h-0 overflow-hidden"
+        } transition-all duration-300`}
+      >
+        {/* toolbar */}
+        <div className="flex w-full items-center justify-between px-4">
+          <div className="flex justify-center gap-16">
+            <Input
+              isRequired
+              className="w-80"
+              labelPlacement="outside"
+              placeholder="search point..."
+              value={searchVal}
+              {...register("search")}
+              endContent={
+                <div className="flex gap-3">
+                  {searchVal?.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setPointsList(points);
+                        setValue("search", "");
+                      }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="size-5 text-red-600"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18 18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                  <button onClick={searchPointsHandler}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="1.5"
+                      stroke="currentColor"
+                      className="size-5 text-indigo-600"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              }
+              size="md"
+            />
+          </div>
+
+          <div className="flex flex-row-reverse gap-4">
+            <DateRangePicker
+              aria-label="filter by date"
+              value={date}
+              onChange={setDate}
+              hideTimeZone
+              defaultValue={
+                {
+                  // start: parseAbsoluteToLocal("2024-04-01T07:45:00Z"),
+                  // end: parseAbsoluteToLocal("2024-04-14T19:15:00Z"),
+                }
+              }
+            />
+
+            <TimeInput
+              label="to"
+              value={to}
+              onChange={setTo}
+              labelPlacement="outside-left"
+            />
+
+            <TimeInput
+              label="from"
+              value={from}
+              onChange={setFrom}
+              labelPlacement="outside-left"
+            />
+
+            <Button
+              onClick={sortByDateHandler}
+              variant="shadow"
+              className="bg-indigo-600 text-white shadow-indigo-200"
+            >
+              Filter
+            </Button>
+
+            {date.start && (
+              <button
+                onClick={() => {
+                  setPointsList(points);
+                  setDate({});
+                  setFrom("");
+                  setTo("");
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="size-5 text-red-600"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18 18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-row-reverse items-center gap-4">
+            {/* settings */}
+            <button
+              onClick={openSettingsModal}
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-200 outline-none transition-all duration-300 active:scale-95"
+            >
+              {settingsLoading ? (
+                <Spinner size="sm" color="white" />
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="size-6"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                  />
+                </svg>
+              )}
+            </button>
+
+            {/* refresh data */}
+            <button
+              onClick={() => {
+                setRotateIcon(true);
+
+                getAllPoints();
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+                className={`size-5 ${rotateIcon && "spinner-anim"}`}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <Table
+          classNames={{ wrapper: "bg-transparent shadow-none rounded-none" }}
+          className="max-h-fit"
+          aria-label="Example table with custom cells"
+        >
+          <TableHeader columns={columns}>
+            {(column) => (
+              <TableColumn key={column.uid} align="center">
+                {column.name}
+              </TableColumn>
+            )}
+          </TableHeader>
+          <TableBody
+            loadingContent={<Spinner label="Loading..." />}
+            isLoading={loading}
+            items={pointsList}
+            emptyContent="doesn't exist any point  !"
+          >
+            {(item) => (
+              <TableRow key={item._id}>
+                {(columnKey) => (
+                  <TableCell>
+                    {renderCell(
+                      item,
+                      columnKey,
+                      pointsList.findIndex((p) => p._id === item._id) + 1,
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -1001,7 +1517,7 @@ export { PointIcon };
 // File: src/components/map/EditIcon.tsx
 import React from "react";
 
-export const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
+export const EditIcon = () => (
   <svg
     aria-hidden="true"
     fill="none"
@@ -1010,7 +1526,6 @@ export const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
     role="presentation"
     viewBox="0 0 20 20"
     width="1em"
-    {...props}
   >
     <path
       d="M11.05 3.00002L4.20835 10.2417C3.95002 10.5167 3.70002 11.0584 3.65002 11.4334L3.34169 14.1334C3.23335 15.1084 3.93335 15.775 4.90002 15.6084L7.58335 15.15C7.95835 15.0834 8.48335 14.8084 8.74168 14.525L15.5834 7.28335C16.7667 6.03335 17.3 4.60835 15.4583 2.86668C13.625 1.14168 12.2334 1.75002 11.05 3.00002Z"
@@ -1043,29 +1558,23 @@ export const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
 import React, { useState } from "react";
 import Image from "next/image";
 
-interface SidebarProps {
-  setAddPointModal: React.Dispatch<React.SetStateAction<boolean>>;
-  showPointList: boolean;
-  setShowPointList: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
 export default function Sidebar({
   setAddPointModal,
   showPointList,
   setShowPointList,
-}: SidebarProps) {
-  const [openSidebar, setOpenSidebar] = useState<boolean>(false);
+}: {
+  setAddPointModal: (value: boolean) => void;
+  showPointList: boolean;
+  setShowPointList: (value: boolean) => void;
+}) {
+  const [openSidebar, setOpenSidebar] = useState(false);
 
   return (
     <div
-      className={`${
-        openSidebar ? "min-w-60" : "min-w-16"
-      } relative transition-all duration-300`}
+      className={`${openSidebar ? "min-w-60" : "min-w-16"} relative transition-all duration-300`}
     >
       <div
-        className={`${
-          openSidebar ? "min-w-60 p-5" : "min-w-16 p-2"
-        } fixed bottom-0 flex h-full flex-col items-center gap-4 bg-indigo-100 pt-3 transition-all  duration-300`}
+        className={`${openSidebar ? "min-w-60 p-5" : "min-w-16 p-2"} fixed bottom-0 flex h-full flex-col items-center gap-4 bg-indigo-100 pt-3 transition-all  duration-300`}
       >
         <button
           onClick={() => setOpenSidebar(!openSidebar)}
@@ -1101,9 +1610,7 @@ export default function Sidebar({
 
         <button
           onClick={() => setAddPointModal(true)}
-          className={`${
-            openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"
-          } flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          className={`${openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1130,9 +1637,7 @@ export default function Sidebar({
 
         <button
           onClick={() => setShowPointList(!showPointList)}
-          className={`${
-            openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"
-          } flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          className={`${openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
         >
           {showPointList ? (
             <svg
@@ -1195,134 +1700,80 @@ const servicesApi = axios.create({
   },
 });
 
-interface PostDataParams {
-  [key: string]: any;
-}
-
-// post method
-const postData = async (
+export const postData = async (
   param: string,
-  data: PostDataParams,
-  withToken = false,
+  data: any,
+  withToken: boolean = false,
 ) => {
   if (withToken) {
     const token = localStorage.getItem("token");
-    const res = await servicesApi.post(param, data, {
+    return servicesApi.post(param, data, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    return res;
   }
-
-  const res = await servicesApi.post(param, data);
-  return res;
+  return servicesApi.post(param, data);
 };
 
-// get method
-const getData = async (
+export const getData = async (
   param: string,
-  data: PostDataParams,
-  withToken = false,
+  data: any,
+  withToken: boolean = false,
 ) => {
   if (withToken) {
     const token = localStorage.getItem("token");
-    const res = await servicesApi.get(param, {
+    return servicesApi.get(param, {
       params: data,
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    return res;
   }
-
-  const res = await servicesApi.get(param, { params: data });
-  return res;
+  return servicesApi.get(param, { params: data });
 };
 
-// delete method
-const deleteData = async (
+export const deleteData = async (
   param: string,
-  data: PostDataParams,
-  withToken = false,
+  data: any,
+  withToken: boolean = false,
 ) => {
   if (withToken) {
     const token = localStorage.getItem("token");
-    const res = await servicesApi.delete(param, {
+    return servicesApi.delete(param, {
       headers: { Authorization: `Bearer ${token}` },
-      data: data,
+      data,
     });
-
-    return res;
   }
-
-  const res = await servicesApi.delete(param, { data: data });
-  return res;
+  return servicesApi.delete(param, { data });
 };
-
-export { postData, getData, deleteData };
 
 // File: models/SettingsModel.ts
 import mongoose from "mongoose";
 
 const schema = new mongoose.Schema({
-  lat: {
-    type: Number,
-    required: true,
-    default: 35.694523130867424,
-  },
-  lng: {
-    type: Number,
-    required: true,
-    default: 51.30922197948697,
-  },
-  zoom: {
-    type: Number,
-    required: true,
-    default: 13,
-  },
+  lat: { type: Number, required: true, default: 35.694523130867424 },
+  lng: { type: Number, required: true, default: 51.30922197948697 },
+  zoom: { type: Number, required: true, default: 13 },
 });
 
-const model =
+const SettingsModel =
   mongoose.models.SettingsModel || mongoose.model("SettingsModel", schema);
 
-export default model;
+export default SettingsModel;
 
 // File: models/MapModel.ts
 import mongoose from "mongoose";
 
 const schema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-  },
-  lat: {
-    type: Number,
-    required: true,
-  },
-  lng: {
-    type: Number,
-    required: true,
-  },
-  frequency: {
-    type: Number,
-    required: true,
-  },
-  status: {
-    type: String,
-    default: "active",
-  },
-  date: {
-    type: Date,
-    default: () => Date.now(),
-  },
-  deletedAt: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null,
-  },
+  name: { type: String, required: true },
+  lat: { type: Number, required: true },
+  lng: { type: Number, required: true },
+  frequency: { type: Number, required: true },
+  status: { type: String, default: "active" },
+  date: { type: Date, default: () => Date.now() },
+  deletedAt: { type: mongoose.Schema.Types.Mixed, default: null },
 });
 
-const model = mongoose.models.MapModel || mongoose.model("MapModel", schema);
+const MapModel = mongoose.models.MapModel || mongoose.model("MapModel", schema);
 
-export default model;
+export default MapModel;
 
 // File: configs/db.ts
 import mongoose from "mongoose";
@@ -1330,11 +1781,10 @@ import mongoose from "mongoose";
 const connectDB = async () => {
   try {
     if (mongoose.connections[0].readyState) {
-      console.log("Already connected");
       return true;
     } else {
       await mongoose.connect(process.env.MONGO_URL!);
-      console.log("Database connected");
+      console.log("Database connected successfully");
     }
   } catch (err) {
     console.error(err);

@@ -1,5 +1,6 @@
-import * as React from "react";
-export const DeleteIcon = (props) => (
+import React from "react";
+
+export const DeleteIcon = () => (
   <svg
     aria-hidden="true"
     fill="none"

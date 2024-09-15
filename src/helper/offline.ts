@@ -1,28 +1,25 @@
-/* global L,LeafletOffline, $  */
+/* global L, LeafletOffline, $ */
 const urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 function showTileList() {
   LeafletOffline.getStorageInfo(urlTemplate).then((r) => {
     const list = document.getElementById("tileinforows");
-    list.innerHTML = "";
-    for (let i = 0; i < r.length; i += 1) {
-      const createdAt = new Date(r[i].createdAt);
-      list.insertAdjacentHTML(
-        "beforeend",
-        `<tr><td>${i}</td><td>${r[i].url}</td><td>${
-          r[i].key
-        }</td><td>${createdAt.toDateString()}</td></tr>`
-      );
+    if (list) {
+      list.innerHTML = "";
+      r.forEach((tile, i) => {
+        const createdAt = new Date(tile.createdAt);
+        list.insertAdjacentHTML(
+          "beforeend",
+          `<tr><td>${i}</td><td>${tile.url}</td><td>${tile.key}</td><td>${createdAt.toDateString()}</td></tr>`,
+        );
+      });
     }
   });
 }
 
-$("#storageModal").on("show.bs.modal", () => {
-  showTileList();
-});
+$("#storageModal").on("show.bs.modal", showTileList);
 
 const map = L.map("map");
-// offline baselayer, will use offline source if available
 const baseLayer = L.tileLayer
   .offline(urlTemplate, {
     attribution: "Map data {attribution.OpenStreetMap}",
@@ -30,17 +27,14 @@ const baseLayer = L.tileLayer
     minZoom: 13,
   })
   .addTo(map);
-// add buttons to save tiles in area viewed
 const control = L.control.savetiles(baseLayer, {
-  zoomlevels: [13, 16], // optional zoomlevels to save, default current zoomlevel
-  confirm(layer, succescallback) {
-    // eslint-disable-next-line no-alert
+  zoomlevels: [13, 16],
+  confirm: (layer, successCallback) => {
     if (window.confirm(`Save ${layer._tilesforSave.length}`)) {
-      succescallback();
+      successCallback();
     }
   },
-  confirmRemoval(layer, successCallback) {
-    // eslint-disable-next-line no-alert
+  confirmRemoval: (layer, successCallback) => {
     if (window.confirm("Remove all the tiles?")) {
       successCallback();
     }
@@ -50,37 +44,25 @@ const control = L.control.savetiles(baseLayer, {
   rmText:
     '<i class="fa fa-trash" aria-hidden="true"  title="Remove tiles"></i>',
 });
+
 control.addTo(map);
 
-map.setView(
-  {
-    lat: 51.985,
-    lng: 5,
-  },
-  16
-);
-// layer switcher control
+map.setView({ lat: 51.985, lng: 5 }, 16);
 const layerswitcher = L.control
-  .layers(
-    {
-      "osm (offline)": baseLayer,
-    },
-    null,
-    { collapsed: false }
-  )
+  .layers({ "osm (offline)": baseLayer }, null, { collapsed: false })
   .addTo(map);
 
-let storageLayer;
+let storageLayer: L.GeoJSON;
 
 const getGeoJsonData = () =>
   LeafletOffline.getStorageInfo(urlTemplate).then((data) =>
-    LeafletOffline.getStoredTilesAsJson(baseLayer, data)
+    LeafletOffline.getStoredTilesAsJson(baseLayer, data),
   );
 
 const addStorageLayer = () => {
   getGeoJsonData().then((geojson) => {
     storageLayer = L.geoJSON(geojson).bindPopup(
-      (clickedLayer) => clickedLayer.feature.properties.key
+      (clickedLayer) => clickedLayer.feature.properties.key,
     );
     layerswitcher.addOverlay(storageLayer, "stored tiles");
   });
@@ -88,11 +70,12 @@ const addStorageLayer = () => {
 
 addStorageLayer();
 
-document.getElementById("remove_tiles").addEventListener("click", () => {
+document.getElementById("remove_tiles")?.addEventListener("click", () => {
   control._rmTiles();
 });
+
 baseLayer.on("storagesize", (e) => {
-  document.getElementById("storage").innerHTML = e.storagesize;
+  document.getElementById("storage")!.innerHTML = e.storagesize.toString();
   if (storageLayer) {
     storageLayer.clearLayers();
     getGeoJsonData().then((data) => {
@@ -101,13 +84,13 @@ baseLayer.on("storagesize", (e) => {
   }
 });
 
-// events while saving a tile layer
-let progress;
+let progress: number;
 baseLayer.on("savestart", (e) => {
   progress = 0;
-  document.getElementById("total").innerHTML = e._tilesforSave.length;
+  document.getElementById("total")!.innerHTML =
+    e._tilesforSave.length.toString();
 });
 baseLayer.on("savetileend", () => {
   progress += 1;
-  document.getElementById("progress").innerHTML = progress;
+  document.getElementById("progress")!.innerHTML = progress.toString();
 });

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import * as React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.offline";
@@ -76,31 +76,31 @@ export default function Map({
     },
   });
 
-  const [position, setPosition] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [rotateIcon, setRotateIcon] = React.useState(false);
-  const [points, setPoints] = React.useState([]);
-  const [pointsList, setPointsList] = React.useState([]);
-  const [addPointLoading, setAddPointLoading] = React.useState(false);
-  const [deleteModal, setDeleteModal] = React.useState(false);
-  const [deleteLoading, setDeleteLoading] = React.useState(false);
-  const [pointId, setPointId] = React.useState("");
-  const [statusLoading, setStatusLoading] = React.useState(false);
-  const [editModal, setEditModal] = React.useState(false);
-  const [editLoading, setEditLoading] = React.useState(false);
-  const [settings, setSettings] = React.useState({});
-  const [settingsModal, setSettingsModal] = React.useState(false);
-  const [settingsLoading, setSettingsLoading] = React.useState(true);
-  const [settingsUpdateLoading, setSettingsUpdateLoading] = React.useState(false);
-  const [pointLabel, setPointLabel] = React.useState({});
-  const [once, setOnce] = React.useState(true);
-  const [map, setMap] = React.useState();
-  const [progress, setProgress] = React.useState(0);
-  const [total, setTotal] = React.useState(0);
-  const [date, setDate] = React.useState({});
+  const [position, setPosition] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [rotateIcon, setRotateIcon] = useState(false);
+  const [points, setPoints] = useState([]);
+  const [pointsList, setPointsList] = useState([]);
+  const [addPointLoading, setAddPointLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pointId, setPointId] = useState("");
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [editModal, setEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [settings, setSettings] = useState({});
+  const [settingsModal, setSettingsModal] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsUpdateLoading, setSettingsUpdateLoading] = useState(false);
+  const [pointLabel, setPointLabel] = useState({});
+  const [once, setOnce] = useState(true);
+  const [map, setMap] = useState();
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [date, setDate] = useState({});
   const searchVal = watch("search");
-  const [from, setFrom] = React.useState("");
-  const [to, setTo] = React.useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   // get all points
   const getSettings = () => {
@@ -145,7 +145,7 @@ export default function Map({
       });
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (once) {
       setOnce(false);
       // get all points
@@ -164,7 +164,7 @@ export default function Map({
           subdomains: "abc",
           minZoom: 11,
           maxZoom: 16,
-        }
+        },
       );
 
       tileLayerOffline.addTo(map);
@@ -175,7 +175,7 @@ export default function Map({
           // eslint-disable-next-line no-alert
           if (
             window.confirm(
-              `Are you shure you want download ${layer._tilesforSave.length} tiles ?`
+              `Are you shure you want download ${layer._tilesforSave.length} tiles ?`,
             )
           ) {
             succescallback();
@@ -296,7 +296,7 @@ export default function Map({
             <Tooltip content="edit point">
               <button
                 onClick={() => setPointEditableData(point)}
-                className="text-lg text-default-400 cursor-pointer active:opacity-50"
+                className="text-default-400 cursor-pointer text-lg active:opacity-50"
               >
                 <EditIcon />
               </button>
@@ -308,7 +308,7 @@ export default function Map({
                   setDeleteModal(true);
                   setPointId(point._id);
                 }}
-                className="text-lg text-danger cursor-pointer active:opacity-50"
+                className="text-danger cursor-pointer text-lg active:opacity-50"
               >
                 <DeleteIcon />
               </button>
@@ -380,7 +380,7 @@ export default function Map({
 
         // close modal & clear inputes
         closeEditModalHandler();
-      }
+      },
     );
   };
 
@@ -414,7 +414,7 @@ export default function Map({
   // search points
   const searchPointsHandler = () => {
     const filteredPoints = points.filter((data) =>
-      data.name.toLowerCase().includes(searchVal?.toLowerCase())
+      data.name.toLowerCase().includes(searchVal?.toLowerCase()),
     );
 
     setPointsList(filteredPoints);
@@ -433,7 +433,7 @@ export default function Map({
   };
 
   return (
-    <div className="w-full flex flex-col h-full">
+    <div className="flex h-full w-full flex-col">
       {/* add new point modal */}
       <Modal
         classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
@@ -447,7 +447,7 @@ export default function Map({
                 Add new point
               </ModalHeader>
               <ModalBody>
-                <div className="w-full flex flex-col gap-4">
+                <div className="flex w-full flex-col gap-4">
                   <Input
                     isRequired
                     label="Name"
@@ -490,7 +490,7 @@ export default function Map({
                 </div>
               </ModalBody>
               <ModalFooter>
-                <div className="w-full flex justify-center gap-4">
+                <div className="flex w-full justify-center gap-4">
                   <Button
                     color="danger"
                     variant="light"
@@ -526,7 +526,7 @@ export default function Map({
                 Edit Point
               </ModalHeader>
               <ModalBody>
-                <div className="w-full flex flex-col gap-4">
+                <div className="flex w-full flex-col gap-4">
                   <Input
                     isRequired
                     label="Name"
@@ -569,7 +569,7 @@ export default function Map({
                 </div>
               </ModalBody>
               <ModalFooter>
-                <div className="w-full flex justify-center gap-4">
+                <div className="flex w-full justify-center gap-4">
                   <Button
                     color="danger"
                     variant="light"
@@ -606,7 +606,7 @@ export default function Map({
                 Delete point
               </ModalHeader>
               <ModalBody>
-                <div className="w-full flex gap-2">
+                <div className="flex w-full gap-2">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -627,7 +627,7 @@ export default function Map({
               </ModalBody>
 
               <ModalFooter>
-                <div className="w-full flex justify-center gap-4">
+                <div className="flex w-full justify-center gap-4">
                   <Button
                     color="danger"
                     variant="light"
@@ -663,7 +663,7 @@ export default function Map({
                 Settings
               </ModalHeader>
               <ModalBody>
-                <div className="w-full flex flex-col gap-4">
+                <div className="flex w-full flex-col gap-4">
                   <Input
                     isRequired
                     label="Lat"
@@ -696,7 +696,7 @@ export default function Map({
                 </div>
               </ModalBody>
               <ModalFooter>
-                <div className="w-full flex justify-center gap-4">
+                <div className="flex w-full justify-center gap-4">
                   <Button
                     color="danger"
                     variant="light"
@@ -732,7 +732,7 @@ export default function Map({
                 Tiles Downloading
               </ModalHeader>
               <ModalBody>
-                <div className="w-full text-sm flex justify-between items-center gap-2">
+                <div className="flex w-full items-center justify-between gap-2 text-sm">
                   <span>Total Tiles : {total}</span>
                   <span>Downloaded Tiles : {progress}</span>
 
@@ -747,7 +747,7 @@ export default function Map({
                 </div>
               </ModalBody>
               <ModalFooter>
-                <div className="w-full flex justify-center gap-4">
+                <div className="flex w-full justify-center gap-4">
                   <Spinner size="" label="Please wait..." />
                 </div>
               </ModalFooter>
@@ -757,9 +757,9 @@ export default function Map({
       </Modal>
 
       {/* map & markers */}
-      <div className={`w-full relative h-full`}>
+      <div className={`relative h-full w-full`}>
         {loading || settingsLoading ? (
-          <div className="flex justify-center items-center bg-gray-50 w-full h-full">
+          <div className="flex h-full w-full items-center justify-center bg-gray-50">
             <Spinner label="please wait..." />
           </div>
         ) : (
@@ -797,17 +797,17 @@ export default function Map({
                       }}
                     >
                       <Popup>
-                        <div className="w-full flex flex-col gap-1">
+                        <div className="flex w-full flex-col gap-1">
                           <span>name: {point.name}</span>
                           <span>lat: {point.lat}</span>
                           <span>lng: {point.lng}</span>
                           <span>frequency: {point.frequency}</span>
                           <span>status: {point.status}</span>
 
-                          <div className="w-full flex items-center justify-center mt-2 gap-3">
+                          <div className="mt-2 flex w-full items-center justify-center gap-3">
                             <button
                               onClick={() => setPointEditableData(point)}
-                              className="text-lg text-default-400 cursor-pointer active:opacity-50"
+                              className="text-default-400 cursor-pointer text-lg active:opacity-50"
                             >
                               <EditIcon />
                             </button>
@@ -817,14 +817,14 @@ export default function Map({
                                 setDeleteModal(true);
                                 setPointId(point._id);
                               }}
-                              className="text-lg text-danger cursor-pointer active:opacity-50"
+                              className="text-danger cursor-pointer text-lg active:opacity-50"
                             >
                               <DeleteIcon />
                             </button>
 
                             <button
                               onClick={() => changeStatusHandler(point._id)}
-                              className="text-lg text-warning cursor-pointer active:opacity-50"
+                              className="text-warning cursor-pointer text-lg active:opacity-50"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -845,14 +845,14 @@ export default function Map({
                         </div>
                       </Popup>
                     </Marker>
-                  )
+                  ),
               )}
           </MapContainer>
         )}
 
         {pointLabel?.lat && (
           <div
-            className={`transition-all duration-300 flex flex-col gap-1 text-xs absolute bg-white p-2 rounded-lg right-4 bottom-4 z-[999]`}
+            className={`absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300`}
           >
             <span>lat: {pointLabel?.lat}</span>
             <span>lng: {pointLabel?.lng}</span>
@@ -861,12 +861,12 @@ export default function Map({
       </div>
 
       <div
-        className={`w-full flex flex-col mt-3 ${
+        className={`mt-3 flex w-full flex-col ${
           showPointList ? "h-[40%]" : "h-0 overflow-hidden"
         } transition-all duration-300`}
       >
         {/* toolbar */}
-        <div className="w-full flex justify-between items-center px-4">
+        <div className="flex w-full items-center justify-between px-4">
           <div className="flex justify-center gap-16">
             <Input
               isRequired
@@ -953,7 +953,7 @@ export default function Map({
             <Button
               onClick={sortByDateHandler}
               variant="shadow"
-              className="bg-indigo-600 shadow-indigo-200 text-white"
+              className="bg-indigo-600 text-white shadow-indigo-200"
             >
               Filter
             </Button>
@@ -985,11 +985,11 @@ export default function Map({
             )}
           </div>
 
-          <div className="flex items-center flex-row-reverse gap-4">
+          <div className="flex flex-row-reverse items-center gap-4">
             {/* settings */}
             <button
               onClick={openSettingsModal}
-              className="bg-red-600 active:scale-95 outline-none transition-all duration-300 w-10 h-10 rounded-xl shadow-lg flex justify-center items-center shadow-red-200 text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-200 outline-none transition-all duration-300 active:scale-95"
             >
               {settingsLoading ? (
                 <Spinner size="sm" color="white" />
@@ -1023,7 +1023,7 @@ export default function Map({
 
                 getAllPoints();
               }}
-              className="bg-gray-100 active:scale-95 transition-all duration-300 w-10 h-10 rounded-xl shadow-lg flex justify-center items-center shadow-gray-200 text-gray-600"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -1068,7 +1068,7 @@ export default function Map({
                     {renderCell(
                       item,
                       columnKey,
-                      pointsList.findIndex((p) => p._id === item._id) + 1
+                      pointsList.findIndex((p) => p._id === item._id) + 1,
                     )}
                   </TableCell>
                 )}

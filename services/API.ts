@@ -2,7 +2,6 @@ import axios from "axios";
 
 const servicesApi = axios.create({
   withCredentials: false,
-  // baseURL: "http://localhost:3000",
   timeout: 60000,
   headers: {
     common: {
@@ -11,51 +10,46 @@ const servicesApi = axios.create({
   },
 });
 
-// post method
-const postData = async (param, data, withToken = false) => {
+export const postData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
   if (withToken) {
-    let token = localStorage.getItem("token");
-    const res = await servicesApi.post(param, data, {
+    const token = localStorage.getItem("token");
+    return servicesApi.post(param, data, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    return res;
   }
-
-  const res = await servicesApi.post(param, data);
-  return res;
+  return servicesApi.post(param, data);
 };
 
-// get method
-const getData = async (param, data, withToken = false) => {
+export const getData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
   if (withToken) {
-    let token = localStorage.getItem("token");
-    const res = await servicesApi.get(param, {
+    const token = localStorage.getItem("token");
+    return servicesApi.get(param, {
       params: data,
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    return res;
   }
-
-  const res = await servicesApi.get(param, { params: data });
-  return res;
+  return servicesApi.get(param, { params: data });
 };
 
-// delete method
-const deleteData = async (param, data, withToken = false) => {
+export const deleteData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
   if (withToken) {
-    let token = localStorage.getItem("token");
-    const res = await servicesApi.delete(param, {
+    const token = localStorage.getItem("token");
+    return servicesApi.delete(param, {
       headers: { Authorization: `Bearer ${token}` },
-      data: data,
+      data,
     });
-
-    return res;
   }
-
-  const res = await servicesApi.delete(param, { data: data });
-  return res;
+  return servicesApi.delete(param, { data });
 };
-
-export { postData, getData, deleteData};

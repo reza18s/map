@@ -1,5 +1,6 @@
-import * as React from "react";
-export const EditIcon = (props) => (
+import React from "react";
+
+export const EditIcon = () => (
   <svg
     aria-hidden="true"
     fill="none"
