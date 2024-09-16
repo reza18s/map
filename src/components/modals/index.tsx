@@ -1,7 +1,13 @@
 "use client";
 import { Modal, ModalContent, ModalHeader } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
-export function Modals({ children }: { children: React.ReactNode }) {
+export function Modals({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
   const { isOpen, setClose } = useModal((state) => state);
   return (
     <Modal
@@ -12,9 +18,7 @@ export function Modals({ children }: { children: React.ReactNode }) {
       <ModalContent>
         {() => (
           <>
-            <ModalHeader className="flex flex-col gap-1">
-              Add new point
-            </ModalHeader>
+            <ModalHeader className="flex flex-col gap-1">{title}</ModalHeader>
             {children}
           </>
         )}

@@ -93,9 +93,6 @@ export default function Map() {
   const [rotateIcon, setRotateIcon] = useState(false);
   const [points, setPoints] = useState<IPoint[]>([]);
   const [pointsList, setPointsList] = useState<IPoint[]>([]);
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [pointId, setPointId] = useState<string>("");
   const [statusLoading, setStatusLoading] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [settingsModal, setSettingsModal] = useState(false);
@@ -132,8 +129,6 @@ export default function Map() {
     setLoading(true);
 
     // Reset flags after updates
-    setDeleteLoading(false);
-    setDeleteModal(false);
     setStatusLoading(false);
     setAddPointModal(false);
 
@@ -219,7 +214,9 @@ export default function Map() {
       case "frequency":
         return (
           <div className="flex flex-col">
-            <p className="text-bold text-sm text-gray-700">{columnKey}</p>
+            <p className="text-bold text-sm text-gray-700">
+              {point[columnKey]}
+            </p>
           </div>
         );
       case "status":
@@ -251,13 +248,6 @@ export default function Map() {
   };
 
   // Handlers for adding, deleting, editing points
-
-  const deletePointHandler = () => {
-    setDeleteLoading(true);
-    deleteData("/api/points", { id: pointId }).then(() => {
-      getAllPoints();
-    });
-  };
 
   const changeStatusHandler = (id: string) => {
     setStatusLoading(true);
@@ -312,66 +302,7 @@ export default function Map() {
 
   return (
     <div className="flex size-full flex-col">
-      {/* add new point modal */}
       <ModalProvider></ModalProvider>
-
-      {/* delete point modal */}
-      <Modal
-        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
-        isOpen={deleteModal}
-        size="xs"
-        onClose={() => setDeleteModal(false)}
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                Delete point
-              </ModalHeader>
-              <ModalBody>
-                <div className="flex w-full gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth="1.5"
-                    stroke="currentColor"
-                    className="size-7 text-red-600"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-                    />
-                  </svg>
-
-                  <span>Are you sure you want to delete this point?</span>
-                </div>
-              </ModalBody>
-
-              <ModalFooter>
-                <div className="flex w-full justify-center gap-4">
-                  <Button
-                    color="danger"
-                    variant="light"
-                    onPress={() => setDeleteModal(false)}
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    isLoading={deleteLoading}
-                    variant="shadow"
-                    className="bg-red-600 text-white shadow-red-200"
-                    onPress={deletePointHandler}
-                  >
-                    Delete point
-                  </Button>
-                </div>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
 
       {/* settings modal */}
       <Modal

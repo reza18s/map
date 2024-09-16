@@ -5,6 +5,8 @@ import { Modals } from "../modals";
 import { PointForm } from "../forms/pointForm";
 import { useModal } from "@/store/useModal";
 import { IPoint } from "@/types";
+import { DeleteIcon } from "../map/DeleteIcon";
+import { DeletePointModal } from "../modals/deletePointModal";
 
 export const PointAction = ({ data }: { data: IPoint }) => {
   const setOpen = useModal((state) => state.setOpen);
@@ -14,7 +16,7 @@ export const PointAction = ({ data }: { data: IPoint }) => {
         <button
           onClick={() =>
             setOpen(
-              <Modals>
+              <Modals title="edit point">
                 <PointForm type="edit"></PointForm>
               </Modals>,
               { point: data },
@@ -26,17 +28,16 @@ export const PointAction = ({ data }: { data: IPoint }) => {
         </button>
       </Tooltip>
 
-      {/* <Tooltip color="danger" content="delete point">
+      <Tooltip color="danger" content="delete point">
         <button
-          onClick={() => {
-            setDeleteModal(true);
-            setPointId(point._id);
-          }}
+          onClick={() =>
+            setOpen(<DeletePointModal data={data}></DeletePointModal>)
+          }
           className="cursor-pointer text-lg text-danger active:opacity-50"
         >
           <DeleteIcon />
         </button>
-      </Tooltip> */}
+      </Tooltip>
     </div>
   );
 };

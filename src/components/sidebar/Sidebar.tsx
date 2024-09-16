@@ -8,9 +8,7 @@ import { useAppStore } from "@/store/store";
 export default function Sidebar() {
   const setOpen = useModal((state) => state.setOpen);
   const [openSidebar, setOpenSidebar] = useState(false);
-  const { setAddPointModal, showPointList, setShowPointList } = useAppStore(
-    (state) => state,
-  );
+  const { showPointList, setShowPointList } = useAppStore((state) => state);
   return (
     <div
       className={`${openSidebar ? "min-w-60" : "min-w-16"} relative transition-all duration-300`}
@@ -53,7 +51,7 @@ export default function Sidebar() {
         <button
           onClick={() =>
             setOpen(
-              <Modals>
+              <Modals title="add new point">
                 <PointForm></PointForm>
               </Modals>,
             )

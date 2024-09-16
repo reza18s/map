@@ -1,5 +1,4 @@
 import { postData } from "@/services/API";
-import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -7,7 +6,9 @@ import { pointObject } from "@/validator";
 import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
-  const { setClose, data } = useModal((state) => state);
+  const { data, setIsLoading, isLoading, setClose } = useModal(
+    (state) => state,
+  );
   const {
     register,
     handleSubmit,
@@ -23,35 +24,37 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       frequency: data.point?.frequency || 0,
     },
   });
-  const [Loading, setLoading] = useState(false);
 
   const submitHandler = (newPoint: z.infer<typeof pointObject>) => {
     if (type == "edit") {
-      setLoading(true);
+      setIsLoading(true);
       postData("/api/points/update-point", {
         ...newPoint,
         id: data.point?._id,
       }).then(() => {
-        setLoading(false);
+        setIsLoading(false);
         // getAllPoints();
         reset({ name: "", lat: 0, lng: 0, frequency: 0 });
+        setClose();
       });
     } else {
-      setLoading(true);
+      setIsLoading(true);
       postData("/api/points", { ...newPoint }).then(() => {
         // getAllPoints();
-        setLoading(false);
+        setIsLoading(false);
+
         reset({ name: "", lat: 0, lng: 0, frequency: 0 });
+        setClose();
       });
     }
   };
   return (
     <>
-      <ModalBody>
-        <form
-          className="flex w-full flex-col gap-4"
-          onSubmit={handleSubmit((x) => submitHandler(x))}
-        >
+      <form
+        className="flex w-full flex-col gap-4"
+        onSubmit={handleSubmit((x) => submitHandler(x))}
+      >
+        <ModalBody>
           <Input
             isRequired
             label="Name"
@@ -91,28 +94,28 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage="frequency is required"
             {...register("frequency", { required: true })}
           />
-        </form>
-      </ModalBody>
-      <ModalFooter>
-        <div className="flex w-full justify-center gap-4">
-          <Button
-            color="danger"
-            variant="light"
-            type="button"
-            onClick={() => setClose()}
-          >
-            Close
-          </Button>
-          <Button
-            isLoading={Loading}
-            variant="shadow"
-            className="bg-green-600 text-white shadow-green-200"
-            type="submit"
-          >
-            Add point
-          </Button>
-        </div>
-      </ModalFooter>
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex w-full justify-center gap-4">
+            <Button
+              color="danger"
+              variant="light"
+              type="button"
+              onClick={() => setClose()}
+            >
+              Close
+            </Button>
+            <Button
+              isLoading={isLoading}
+              variant="shadow"
+              className="bg-green-600 text-white shadow-green-200"
+              type="submit"
+            >
+              Add point
+            </Button>
+          </div>
+        </ModalFooter>
+      </form>
     </>
   );
 };
