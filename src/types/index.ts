@@ -1,20 +1,19 @@
-export interface PointData {
+export interface IPoint {
   _id: string;
   name: string;
   lat: number;
   lng: number;
-  frequency: string;
+  frequency: number;
   status: "active" | "disable";
   date: string;
 }
-
-export interface Settings {
+export interface ISettings {
   lat: number;
   lng: number;
   zoom: number;
 }
 
-export interface FormData {
+export interface IFormData {
   name: string;
   lat: string;
   lng: string;
@@ -25,16 +24,16 @@ export interface FormData {
   search?: string;
 }
 
-export interface ModalProps {
+export interface IModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: FormData) => void;
+  onSubmit: (data: IFormData) => void;
   loading: boolean;
-  initialData?: FormData;
+  initialData?: IFormData;
 }
 
 export interface MapComponentProps {
-  points: PointData[];
-  settings: Settings;
-  onMarkerClick: (point: PointData) => void;
+  points: IPoint[];
+  settings: ISettings;
+  onMarkerClick: (point: IPoint) => void;
 }

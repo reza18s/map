@@ -30,8 +30,23 @@ import { useForm } from "react-hook-form";
 import { EditIcon } from "./EditIcon";
 import { DeleteIcon } from "./DeleteIcon";
 import { dateFormatter } from "@/helper/helper";
+import { useAppStore } from "@/store/store";
+import { NewPoint } from "../modals";
+import { IPoint } from "@/types";
+import { ModalProvider } from "@/providers/ModalProvider";
+import { useModal } from "@/store/useModal";
+import { Modals } from "../modals";
+import { PointForm } from "../forms/pointForm";
+import { PointAction } from "../global/pointAction";
 
-// table columns
+// Define interfaces for settings and point objects
+interface Settings {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+
+// Define table columns
 const columns = [
   { name: "id", uid: "id" },
   { name: "name", uid: "name" },
@@ -43,27 +58,20 @@ const columns = [
   { name: "", uid: "action" },
 ];
 
-const statusColorMap = {
+const statusColorMap: { [key: string]: "success" | "danger" } = {
   active: "success",
   disable: "danger",
 };
-interface MapProps {
-  addPointModal: boolean;
-  setAddPointModal: (value: boolean) => void;
-  showPointList: boolean;
-  setShowPointList: (value: boolean) => void;
-}
-export default function Map({
-  addPointModal,
-  setAddPointModal,
-  showPointList,
-}: MapProps) {
+
+// Props interface for the Map component
+// Map component
+export default function Map() {
+  const { setAddPointModal, showPointList } = useAppStore((state) => state);
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    reset,
     formState: { errors },
   } = useForm({
     mode: "onBlur",
@@ -78,41 +86,39 @@ export default function Map({
       search: "",
     },
   });
+  const { setOpen } = useModal((state) => state);
 
-  const [position, setPosition] = useState<[number][]>([]);
+  const [position, setPosition] = useState<[number, number][]>([]);
   const [loading, setLoading] = useState(true);
   const [rotateIcon, setRotateIcon] = useState(false);
-  const [points, setPoints] = useState([]);
-  const [pointsList, setPointsList] = useState([]);
-  const [addPointLoading, setAddPointLoading] = useState(false);
+  const [points, setPoints] = useState<IPoint[]>([]);
+  const [pointsList, setPointsList] = useState<IPoint[]>([]);
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [pointId, setPointId] = useState("");
+  const [pointId, setPointId] = useState<string>("");
   const [statusLoading, setStatusLoading] = useState(false);
-  const [editModal, setEditModal] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [settings, setSettings] = useState({});
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [settingsModal, setSettingsModal] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsUpdateLoading, setSettingsUpdateLoading] = useState(false);
-  const [pointLabel, setPointLabel] = useState({});
+  const [pointLabel, setPointLabel] = useState<Partial<IPoint>>({});
   const [once, setOnce] = useState(true);
-  const [map, setMap] = useState();
+  const [map, setMap] = useState<L.Map | null>(null);
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
-  const [date, setDate] = useState({});
+  const [date, setDate] = useState<any>({});
   const searchVal = watch("search");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
 
-  // get all points
+  // Fetch settings
   const getSettings = () => {
     getData("/api/settings", {})
       .then((res) => {
         setSettings(res.data);
         setSettingsLoading(false);
 
-        // action after update
+        // Close modal after settings are updated
         setSettingsModal(false);
         setSettingsUpdateLoading(false);
       })
@@ -121,29 +127,27 @@ export default function Map({
       });
   };
 
-  // get all points
+  // Fetch all points
   const getAllPoints = () => {
     setLoading(true);
 
-    // action after updates(add, edit, change status & delete points)
+    // Reset flags after updates
     setDeleteLoading(false);
     setDeleteModal(false);
     setStatusLoading(false);
     setAddPointModal(false);
-    setAddPointLoading(false);
-    setEditModal(false);
-    setEditLoading(false);
 
     getData("/api/points", {})
       .then((res) => {
         setPoints(res.data);
         setPointsList(res.data);
-        res.data.length > 0 && setPosition([res.data[0].lat, res.data[0].lng]);
+        if (res.data.length > 0) {
+          setPosition([[res.data[0].lat, res.data[0].lng]]);
+        }
         setLoading(false);
         setRotateIcon(false);
       })
-      .catch((err) => {
-        console.log(err);
+      .catch(() => {
         setLoading(false);
       });
   };
@@ -151,10 +155,7 @@ export default function Map({
   useEffect(() => {
     if (once) {
       setOnce(false);
-      // get all points
       getAllPoints();
-
-      // get settings data
       getSettings();
     }
 
@@ -169,70 +170,34 @@ export default function Map({
           maxZoom: 16,
         },
       );
-
       tileLayerOffline.addTo(map);
 
       const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
-        zoomlevels: [11, 12, 13, 14, 15, 16], // optional zoomlevels to save, default current zoomlevel
+        zoomlevels: [11, 12, 13, 14, 15, 16],
         confirm(layer: any, succescallback: () => void) {
-          // eslint-disable-next-line no-alert
           if (
             window.confirm(
-              `Are you shure you want download ${layer._tilesforSave.length} tiles ?`,
+              `Are you sure you want to download ${layer._tilesforSave.length} tiles?`,
             )
           ) {
             succescallback();
           }
         },
         confirmRemoval(layer: any, successCallback: () => void) {
-          // eslint-disable-next-line no-alert
-          if (window.confirm("Are you shure you want remove all the tiles?")) {
+          if (window.confirm("Are you sure you want to remove all tiles?")) {
             successCallback();
           }
         },
-        saveText: `<div class="w-full h-full flex justify-center items-center">
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="size-5"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-            />
-          </svg>
-        </div>`,
-        rmText: `<div class="w-full h-full flex justify-center items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="size-5"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-              />
-            </svg>
-          </div>`,
+        saveText: `<div>Save</div>`,
+        rmText: `<div>Remove</div>`,
       });
 
       controlSaveTiles.addTo(map);
 
       let progress: number;
-      baseLayer.on("savestart", (e: L.LeafletEvent) => {
-        if (e._tilesforSave) {
-          progress = 0;
-          document.getElementById("total")!.innerHTML =
-            e._tilesforSave.length.toString();
-        }
+      tileLayerOffline.on("savestart", (e: any) => {
+        progress = 0;
+        setTotal(e._tilesforSave.length);
       });
       tileLayerOffline.on("savetileend", () => {
         progress += 1;
@@ -241,39 +206,22 @@ export default function Map({
     }
   }, [map]);
 
-  // data table custom cell
-  const renderCell = (point, columnKey, id: string) => {
-    const cellValue = point[columnKey];
+  // Render cells for the table
+  const renderCell = (point: IPoint, columnKey: string, id: string) => {
+    const cellValue = point[columnKey as keyof IPoint];
 
     switch (columnKey) {
       case "id":
         return <span>{id}</span>;
       case "name":
-        return (
-          <div className="flex flex-col">
-            <p className="text-bold text-sm text-gray-700">{point.name}</p>
-          </div>
-        );
-
       case "lat":
-        return (
-          <div className="flex flex-col">
-            <p className="text-bold text-sm text-gray-700">{point.lat}</p>
-          </div>
-        );
       case "lng":
+      case "frequency":
         return (
           <div className="flex flex-col">
-            <p className="text-bold text-sm text-gray-700">{point.lng}</p>
+            <p className="text-bold text-sm text-gray-700">{columnKey}</p>
           </div>
         );
-      case "z":
-        return (
-          <div className="flex flex-col">
-            <p className="text-bold text-sm text-gray-700">{point.frequency}</p>
-          </div>
-        );
-
       case "status":
         return (
           <button onClick={() => changeStatusHandler(point._id)}>
@@ -283,11 +231,10 @@ export default function Map({
               size="sm"
               variant="flat"
             >
-              {statusLoading ? "wait..." : cellValue}
+              {statusLoading ? "wait..." : point.status}
             </Chip>
           </button>
         );
-
       case "time":
         return (
           <div className="flex flex-col">
@@ -297,306 +244,76 @@ export default function Map({
           </div>
         );
       case "action":
-        return (
-          <div className="relative flex items-center gap-4">
-            <Tooltip content="edit point">
-              <button
-                onClick={() => setPointEditableData(point)}
-                className="cursor-pointer text-lg text-default-400 active:opacity-50"
-              >
-                <EditIcon />
-              </button>
-            </Tooltip>
-
-            <Tooltip color="danger" content="delete point">
-              <button
-                onClick={() => {
-                  setDeleteModal(true);
-                  setPointId(point._id);
-                }}
-                className="cursor-pointer text-lg text-danger active:opacity-50"
-              >
-                <DeleteIcon />
-              </button>
-            </Tooltip>
-          </div>
-        );
+        return <PointAction data={point}></PointAction>;
       default:
-        return cellValue;
+        return cellValue ? <span>{cellValue}</span> : null;
     }
   };
 
-  // add point handler
-  const addPointHandler = (data) => {
-    setAddPointLoading(true);
+  // Handlers for adding, deleting, editing points
 
-    postData("/api/points", { ...data }).then((res) => {
-      // refresh point data table
-      getAllPoints();
-      reset({ name: "", lat: "", lng: "", frequency: "" });
-    });
-  };
-
-  // delete single point
   const deletePointHandler = () => {
     setDeleteLoading(true);
-
-    deleteData("/api/points", { id: pointId }).then((res) => {
-      // refresh point data table
+    deleteData("/api/points", { id: pointId }).then(() => {
       getAllPoints();
     });
   };
 
-  // change point status, show in map or not
-  const changeStatusHandler = (id) => {
+  const changeStatusHandler = (id: string) => {
     setStatusLoading(true);
-
-    postData("/api/points/change-status", { id }).then((res) => {
-      // refresh point data table
+    postData("/api/points/change-status", { id }).then(() => {
       getAllPoints();
     });
   };
 
-  // set current data in inputes
-  const setPointEditableData = (point) => {
-    setEditModal(true);
-
-    setPointId(point._id);
-    setValue("name", point.name);
-    setValue("lat", point.lat);
-    setValue("lng", point.lng);
-    setValue("frequency", point.frequency);
-  };
-
-  // close edit modal & clear inputes
-  const closeEditModalHandler = () => {
-    setEditModal(false);
-    setPointId("");
-    reset({ name: "", lat: "", lng: "", frequency: "" });
-  };
-
-  // edit point handler
-  const editPointHandler = (data) => {
-    setEditLoading(true);
-
-    postData("/api/points/update-point", { ...data, id: pointId }).then(
-      (res) => {
-        // refresh point data table
-        getAllPoints();
-
-        // close modal & clear inputes
-        closeEditModalHandler();
-      },
-    );
-  };
-
-  //open settings modal & set defualt data in settings input
+  // Settings modal open and update handlers
   const openSettingsModal = () => {
-    setSettingsModal(true);
-    setValue("lat_settings", settings.lat);
-    setValue("lng_settings", settings.lng);
-    setValue("zoom", settings.zoom);
+    if (settings) {
+      setSettingsModal(true);
+      setValue("lat_settings", settings.lat.toString());
+      setValue("lng_settings", settings.lng.toString());
+      setValue("zoom", settings.zoom.toString());
+    }
   };
 
-  // update settings data handler
-  const updateSettingsHandler = (data) => {
+  const updateSettingsHandler = (data: any) => {
     setSettingsUpdateLoading(true);
-
     postData("/api/settings", {
-      lat: data.lat_settings,
-      lng: data.lng_settings,
-      zoom: data.zoom,
+      lat: parseFloat(data.lat_settings),
+      lng: parseFloat(data.lng_settings),
+      zoom: parseInt(data.zoom),
     })
-      .then((res) => {
+      .then(() => {
         setSettingsUpdateLoading(false);
         window.location.reload();
-        getSettings();
       })
-      .catch((err) => {
+      .catch(() => {
         setSettingsLoading(false);
       });
   };
 
-  // search points
+  // Search and filter points
   const searchPointsHandler = () => {
     const filteredPoints = points.filter((data) =>
       data.name.toLowerCase().includes(searchVal?.toLowerCase()),
     );
-
     setPointsList(filteredPoints);
   };
 
   const sortByDateHandler = () => {
     const startDate = new Date(dateFormatter(date, from).start);
     const endDate = new Date(dateFormatter(date, to).end);
-
     const result = points.filter((point) => {
-      const date = new Date(point.date);
-      return date >= startDate && date <= endDate;
+      const pointDate = new Date(point.date);
+      return pointDate >= startDate && pointDate <= endDate;
     });
-
     setPointsList(result);
   };
 
   return (
     <div className="flex size-full flex-col">
       {/* add new point modal */}
-      <Modal
-        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
-        isOpen={addPointModal}
-        onClose={() => setAddPointModal(false)}
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                Add new point
-              </ModalHeader>
-              <ModalBody>
-                <div className="flex w-full flex-col gap-4">
-                  <Input
-                    isRequired
-                    label="Name"
-                    labelPlacement="outside"
-                    placeholder="Enter point name"
-                    isInvalid={!!errors.name}
-                    errorMessage="name is required"
-                    {...register("name", { required: true })}
-                  />
-
-                  <Input
-                    isRequired
-                    label="Lat"
-                    labelPlacement="outside"
-                    placeholder="Enter point lat"
-                    isInvalid={!!errors.lat}
-                    errorMessage="lat is required"
-                    {...register("lat", { required: true })}
-                  />
-
-                  <Input
-                    isRequired
-                    label="Lng"
-                    labelPlacement="outside"
-                    placeholder="Enter point lng"
-                    isInvalid={!!errors.lng}
-                    errorMessage="lng is required"
-                    {...register("lng", { required: true })}
-                  />
-
-                  <Input
-                    isRequired
-                    label="Frequency"
-                    labelPlacement="outside"
-                    placeholder="Enter point frequency"
-                    isInvalid={!!errors.frequency}
-                    errorMessage="frequency is required"
-                    {...register("frequency", { required: true })}
-                  />
-                </div>
-              </ModalBody>
-              <ModalFooter>
-                <div className="flex w-full justify-center gap-4">
-                  <Button
-                    color="danger"
-                    variant="light"
-                    onClick={() => setAddPointModal(false)}
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    isLoading={addPointLoading}
-                    variant="shadow"
-                    className="bg-green-600 text-white shadow-green-200"
-                    onClick={handleSubmit(addPointHandler)}
-                  >
-                    Add point
-                  </Button>
-                </div>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
-
-      {/* edit point modal */}
-      <Modal
-        classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
-        isOpen={editModal}
-        onClose={closeEditModalHandler}
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                Edit Point
-              </ModalHeader>
-              <ModalBody>
-                <div className="flex w-full flex-col gap-4">
-                  <Input
-                    isRequired
-                    label="Name"
-                    labelPlacement="outside"
-                    placeholder="Enter point name"
-                    isInvalid={!!errors.name}
-                    errorMessage="name is required"
-                    {...register("name", { required: true })}
-                  />
-
-                  <Input
-                    isRequired
-                    label="Lat"
-                    labelPlacement="outside"
-                    placeholder="Enter point lat"
-                    isInvalid={!!errors.lat}
-                    errorMessage="lat is required"
-                    {...register("lat", { required: true })}
-                  />
-
-                  <Input
-                    isRequired
-                    label="Lng"
-                    labelPlacement="outside"
-                    placeholder="Enter point lng"
-                    isInvalid={!!errors.lng}
-                    errorMessage="lng is required"
-                    {...register("lng", { required: true })}
-                  />
-
-                  <Input
-                    isRequired
-                    label="Frequency"
-                    labelPlacement="outside"
-                    placeholder="Enter point frequency"
-                    isInvalid={!!errors.frequency}
-                    errorMessage="frequency is required"
-                    {...register("frequency", { required: true })}
-                  />
-                </div>
-              </ModalBody>
-              <ModalFooter>
-                <div className="flex w-full justify-center gap-4">
-                  <Button
-                    color="danger"
-                    variant="light"
-                    onClick={closeEditModalHandler}
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    isLoading={editLoading}
-                    variant="shadow"
-                    className="bg-green-600 text-white shadow-green-200"
-                    onClick={handleSubmit(editPointHandler)}
-                  >
-                    Edit point
-                  </Button>
-                </div>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+      <ModalProvider></ModalProvider>
 
       {/* delete point modal */}
       <Modal

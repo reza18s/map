@@ -1,17 +1,16 @@
 import React, { useState } from "react";
 import Image from "next/image";
+import { useModal } from "@/store/useModal";
+import { Modals } from "../modals";
+import { PointForm } from "../forms/pointForm";
+import { useAppStore } from "@/store/store";
 
-export default function Sidebar({
-  setAddPointModal,
-  showPointList,
-  setShowPointList,
-}: {
-  setAddPointModal: (value: boolean) => void;
-  showPointList: boolean;
-  setShowPointList: (value: boolean) => void;
-}) {
+export default function Sidebar() {
+  const setOpen = useModal((state) => state.setOpen);
   const [openSidebar, setOpenSidebar] = useState(false);
-
+  const { setAddPointModal, showPointList, setShowPointList } = useAppStore(
+    (state) => state,
+  );
   return (
     <div
       className={`${openSidebar ? "min-w-60" : "min-w-16"} relative transition-all duration-300`}
@@ -52,8 +51,14 @@ export default function Sidebar({
         </div>
 
         <button
-          onClick={() => setAddPointModal(true)}
-          className={`${openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          onClick={() =>
+            setOpen(
+              <Modals>
+                <PointForm></PointForm>
+              </Modals>,
+            )
+          }
+          className={`${openSidebar ? "h-14 w-full px-4" : "size-10  justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -80,7 +85,7 @@ export default function Sidebar({
 
         <button
           onClick={() => setShowPointList(!showPointList)}
-          className={`${openSidebar ? "h-14 w-full px-4" : "h-10  w-10 justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          className={`${openSidebar ? "h-14 w-full px-4" : "size-10  justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
         >
           {showPointList ? (
             <svg
