@@ -8,3 +8,8 @@ export const pointObject = z.object({
   lng: z.number(),
   frequency: z.number(),
 });
+export const settingsObject = z.object({
+  lat_settings: z.number(),
+  lng_settings: z.number(),
+  zoom: z.number(),
+});
