@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import {
+  Chip,
   Spinner,
   Table,
   TableBody,
@@ -11,7 +12,11 @@ import {
 import { PointAction } from "../global/pointAction";
 import { IPoint } from "@/types";
 import { useAppStore } from "@/store/store";
-
+import { postData } from "@/services/API";
+const statusColorMap: { [key: string]: "success" | "danger" } = {
+  active: "success",
+  disable: "danger",
+};
 const columns = [
   { name: "id", uid: "id" },
   { name: "name", uid: "name" },
@@ -23,7 +28,16 @@ const columns = [
   { name: "", uid: "action" },
 ];
 export const Tables = () => {
-  const { points, isLoading } = useAppStore((state) => state);
+  const { points, isLoading, getAllPoints } = useAppStore((state) => state);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const changeStatusHandler = (id: string) => {
+    setStatusLoading(true);
+    postData("/api/points/change-status", { id }).then(() => {
+      setStatusLoading(false);
+      getAllPoints();
+    });
+  };
+
   const renderCell = (point: IPoint, columnKey: string, id: string) => {
     const cellValue = point[columnKey as keyof IPoint];
 
@@ -41,19 +55,19 @@ export const Tables = () => {
             </p>
           </div>
         );
-      // case "status":
-      //   return (
-      //     <button onClick={() => changeStatusHandler(point._id)}>
-      //       <Chip
-      //         className="capitalize"
-      //         color={statusColorMap[point.status]}
-      //         size="sm"
-      //         variant="flat"
-      //       >
-      //         {statusLoading ? "wait..." : point.status}
-      //       </Chip>
-      //     </button>
-      //   );
+      case "status":
+        return (
+          <button onClick={() => changeStatusHandler(point._id)}>
+            <Chip
+              className="capitalize"
+              color={statusColorMap[point.status]}
+              size="sm"
+              variant="flat"
+            >
+              {statusLoading ? "wait..." : point.status}
+            </Chip>
+          </button>
+        );
       case "time":
         return (
           <div className="flex flex-col">

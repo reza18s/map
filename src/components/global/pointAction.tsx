@@ -1,12 +1,11 @@
 import { Tooltip } from "@nextui-org/react";
 import React from "react";
-import { EditIcon } from "../map/EditIcon";
 import { Modals } from "../modals";
 import { PointForm } from "../forms/pointForm";
 import { useModal } from "@/store/useModal";
 import { IPoint } from "@/types";
-import { DeleteIcon } from "../map/DeleteIcon";
 import { DeletePointModal } from "../modals/deletePointModal";
+import { EditIcon, Trash2 } from "lucide-react";
 
 export const PointAction = ({ data }: { data: IPoint }) => {
   const setOpen = useModal((state) => state.setOpen);
@@ -35,7 +34,7 @@ export const PointAction = ({ data }: { data: IPoint }) => {
           }
           className="cursor-pointer text-lg text-danger active:opacity-50"
         >
-          <DeleteIcon />
+          <Trash2 />
         </button>
       </Tooltip>
     </div>
