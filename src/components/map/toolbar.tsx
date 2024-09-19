@@ -1,3 +1,4 @@
+"use client";
 import {
   Button,
   DateRangePicker,
@@ -29,7 +30,6 @@ export const Toolbar = () => {
     },
   });
 
-  const [rotateIcon, setRotateIcon] = useState(false);
   const [date, setDate] = useState<RangeValue<DateValue>>();
   const [from, setFrom] = useState<TimeInputValue>();
   const [to, setTo] = useState<TimeInputValue>();
@@ -177,7 +177,6 @@ export const Toolbar = () => {
 
         <button
           onClick={() => {
-            setRotateIcon(true);
             getAllPoints();
           }}
           className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"

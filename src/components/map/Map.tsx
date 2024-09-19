@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { MapContainer, Polygon, TileLayer, Tooltip } from "react-leaflet";
 import { Spinner } from "@nextui-org/react";

@@ -65,6 +65,7 @@ export const useAppStore = create<storeType>((set) => ({
         set({ points: res.data, isLoading: false });
       })
       .catch((error) => {
+        // eslint-disable-next-line no-console
         console.error("Error fetching points:", error);
         set({ isLoading: false });
       });

@@ -1,3 +1,5 @@
+"use client";
+
 import { postData } from "@/services/API";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";

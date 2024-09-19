@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import {
   Chip,
@@ -107,6 +108,7 @@ export const Tables = () => {
               <TableCell>
                 {renderCell(
                   item,
+                  //@ts-expect-error the
                   columnKey,
                   points.findIndex((p) => p._id === item._id) + 1,
                 )}

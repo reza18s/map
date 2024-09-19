@@ -1,3 +1,4 @@
+"use client";
 import { EditIcon, Trash2 } from "lucide-react";
 import React from "react";
 import { Marker, Popup, Tooltip } from "react-leaflet";

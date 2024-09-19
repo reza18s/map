@@ -25,7 +25,9 @@ export async function POST(req: Request) {
       { status: 200 },
     );
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error("Error creating polygon:", err);
+    // @ts-expect-error the
     return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
