@@ -4,15 +4,17 @@ import { useModal } from "@/store/useModal";
 import { deleteData } from "@/services/API";
 import { IPoint } from "@/types";
 import { Button, ModalBody, ModalFooter } from "@nextui-org/react";
+import { useAppStore } from "@/store/store";
 
 export const DeletePointModal = ({ data }: { data: IPoint }) => {
   const setClose = useModal((state) => state.setClose);
+  const getAllPoints = useAppStore((state) => state.getAllPoints);
   const setIsLoading = useModal((state) => state.setIsLoading);
   const isLoading = useModal((state) => state.isLoading);
   const deletePointHandler = () => {
     setIsLoading(true);
     deleteData("/api/points", { id: data._id }).then(() => {
-      // getAllPoints();
+      getAllPoints();
       setIsLoading(false);
       setClose();
     });

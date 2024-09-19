@@ -1,5 +1,5 @@
 import connectDB from "@/configs/db";
-import MapModel from "@/models/MapModel";
+import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -8,8 +8,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { id } = body;
 
-    const point = await MapModel.findOne({ _id: id });
-    await MapModel.findOneAndUpdate(
+    const point = await PointsModel.findOne({ _id: id });
+    await PointsModel.findOneAndUpdate(
       { _id: id },
       { $set: { status: point?.status === "active" ? "disable" : "active" } },
     );

@@ -1,5 +1,5 @@
 import connectDB from "@/configs/db";
-import MapModel from "@/models/MapModel";
+import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { lat, lng, date, deletedAt, name, frequency } = body;
 
-    const points = await MapModel.create({
+    const points = await PointsModel.create({
       lat,
       lng,
       date,
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     await connectDB();
-    const points = await MapModel.find({ deletedAt: null }, "-__v");
+    const points = await PointsModel.find({ deletedAt: null }, "-__v");
     return NextResponse.json(points);
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
@@ -41,7 +41,7 @@ export async function DELETE(req: Request) {
     const body = await req.json();
     const { id } = body;
 
-    await MapModel.findOneAndUpdate(
+    await PointsModel.findOneAndUpdate(
       { _id: id },
       { $set: { deletedAt: new Date() } },
     );

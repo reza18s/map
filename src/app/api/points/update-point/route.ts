@@ -1,5 +1,5 @@
 import connectDB from "@/configs/db";
-import MapModel from "@/models/MapModel";
+import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, lat, lng, frequency, id } = body;
 
-    await MapModel.findOneAndUpdate(
+    await PointsModel.findOneAndUpdate(
       { _id: id },
       { $set: { name, lat, lng, frequency } },
     );

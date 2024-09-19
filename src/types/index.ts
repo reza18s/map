@@ -1,3 +1,5 @@
+// File: src/types/index.ts
+
 export interface IPoint {
   _id: string;
   name: string;
@@ -7,6 +9,7 @@ export interface IPoint {
   status: "active" | "disable";
   date: string;
 }
+
 export interface ISettings {
   lat: number;
   lng: number;
@@ -24,6 +27,16 @@ export interface IFormData {
   search?: string;
 }
 
+// New IPolygon interface for polygons
+export interface IPolygon {
+  _id: string;
+  name: string;
+  points: { lat: number; lng: number }[]; // Array of lat/lng for polygon vertices
+  flag: number; // 0 (hide) or 1 (show)
+  isPolygon: boolean; // True for polygons
+  date: string;
+}
+
 export interface IModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +47,7 @@ export interface IModalProps {
 
 export interface MapComponentProps {
   points: IPoint[];
+  polygons: IPolygon[]; // Add polygons to map component props
   settings: ISettings;
   onMarkerClick: (point: IPoint) => void;
 }

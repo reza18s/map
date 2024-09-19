@@ -6,9 +6,7 @@ import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { postData } from "@/services/API";
 export const SettingsForm = () => {
-  const { data, setIsLoading, isLoading, setClose } = useModal(
-    (state) => state,
-  );
+  const { setIsLoading, isLoading, setClose } = useModal((state) => state);
   const {
     register,
     handleSubmit,

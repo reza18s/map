@@ -5,10 +5,12 @@ import { z } from "zod";
 import { pointObject } from "@/validator";
 import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
+import { useAppStore } from "@/store/store";
 export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const { data, setIsLoading, isLoading, setClose } = useModal(
     (state) => state,
   );
+  const getAllPoints = useAppStore((state) => state.getAllPoints);
   const {
     register,
     handleSubmit,
@@ -33,14 +35,14 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
         id: data.point?._id,
       }).then(() => {
         setIsLoading(false);
-        // getAllPoints();
+        getAllPoints();
         reset({ name: "", lat: 0, lng: 0, frequency: 0 });
         setClose();
       });
     } else {
       setIsLoading(true);
       postData("/api/points", { ...newPoint }).then(() => {
-        // getAllPoints();
+        getAllPoints();
         setIsLoading(false);
 
         reset({ name: "", lat: 0, lng: 0, frequency: 0 });
