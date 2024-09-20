@@ -6,6 +6,7 @@ export interface IPoint {
   lat: number;
   lng: number;
   frequency: number;
+  iconType: string;
   status: "active" | "disable";
   date: string;
 }

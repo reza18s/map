@@ -1,4 +1,5 @@
 "use client";
+
 import { EditIcon, Trash2 } from "lucide-react";
 import React from "react";
 import { Marker, Popup, Tooltip } from "react-leaflet";
@@ -7,7 +8,7 @@ import { DeletePointModal } from "../modals/deletePointModal";
 import { PointForm } from "../forms/pointForm";
 import { postData } from "@/services/API";
 import { IPoint } from "@/types";
-import { PointIcon } from "./PointIcon";
+import { getPointIcon } from "./PointIcon"; // Adjusted import
 import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
 
@@ -20,6 +21,7 @@ export const Mark = ({
 }) => {
   const { getAllPoints } = useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
+
   const changeStatusHandler = (id: string) => {
     postData("/api/points/change-status", { id }).then(() => {
       getAllPoints();
@@ -28,7 +30,7 @@ export const Mark = ({
   return (
     <Marker
       key={point._id}
-      icon={PointIcon}
+      icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
       position={[point.lat, point.lng]}
       eventHandlers={{
         mouseover: () => {

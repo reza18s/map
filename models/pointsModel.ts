@@ -25,6 +25,9 @@ const schema = new mongoose.Schema({
     type: Date,
     default: () => Date.now(),
   },
+  iconType: {
+    type: String,
+  },
   deletedAt: {
     type: mongoose.Schema.Types.Mixed,
     default: null,

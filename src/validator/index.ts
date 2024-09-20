@@ -7,6 +7,7 @@ export const pointObject = z.object({
   lat: z.number(),
   lng: z.number(),
   frequency: z.number(),
+  iconType: z.string(),
 });
 export const settingsObject = z.object({
   lat_settings: z.number().min(-90).max(90), // Validation for lat

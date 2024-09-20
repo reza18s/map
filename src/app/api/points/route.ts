@@ -6,13 +6,14 @@ export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { lat, lng, date, deletedAt, name, frequency } = body;
+    const { lat, lng, date, deletedAt, name, frequency, iconType } = body;
 
     const points = await PointsModel.create({
       lat,
       lng,
       date,
       name,
+      iconType,
       frequency,
       deletedAt,
     });
@@ -34,16 +35,15 @@ export async function GET() {
     return NextResponse.json({ message: err }, { status: 500 });
   }
 }
-// Update polygon
 export async function PUT(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { id, name, points, flag } = body;
+    const { lat, lng, id, name, point, frequency, iconType } = body;
 
     await PointsModel.findOneAndUpdate(
       { _id: id },
-      { $set: { name, points, flag } },
+      { $set: { lat, lng, name, point, frequency, iconType } },
     );
 
     return NextResponse.json({ message: "Polygon updated!" });

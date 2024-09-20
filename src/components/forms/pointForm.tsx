@@ -5,9 +5,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { pointObject } from "@/validator";
-import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
+import {
+  Button,
+  Input,
+  ModalBody,
+  ModalFooter,
+  Select,
+  SelectItem,
+} from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { useAppStore } from "@/store/store";
+
 export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const { data, setIsLoading, isLoading, setClose } = useModal(
     (state) => state,
@@ -26,6 +34,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       lat: data.point?.lat || 0,
       lng: data.point?.lng || 0,
       frequency: data.point?.frequency || 0,
+      iconType: data.point?.iconType || "car", // مقدار پیش‌فرض برای آیکون
     },
   });
 
@@ -38,7 +47,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       }).then(() => {
         setIsLoading(false);
         getAllPoints();
-        reset({ name: "", lat: 0, lng: 0, frequency: 0 });
+        reset({ name: "", lat: 0, lng: 0, frequency: 0, iconType: "car" });
         setClose();
       });
     } else {
@@ -47,11 +56,12 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
         getAllPoints();
         setIsLoading(false);
 
-        reset({ name: "", lat: 0, lng: 0, frequency: 0 });
+        reset({ name: "", lat: 0, lng: 0, frequency: 0, iconType: "car" });
         setClose();
       });
     }
   };
+
   return (
     <>
       <form
@@ -98,7 +108,28 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.frequency ? errors.frequency.message : ""}
             {...register("frequency", { required: true, valueAsNumber: true })}
           />
+
+          {/* Select for Icon Type */}
+          <Select
+            label="Choose Icon"
+            placeholder="Select an icon"
+            isRequired
+            isInvalid={!!errors.iconType}
+            errorMessage={errors.iconType ? errors.iconType.message : ""}
+            {...register("iconType", { required: true })}
+          >
+            <SelectItem key="car" value="car">
+              Car
+            </SelectItem>
+            <SelectItem key="plane" value="plane">
+              Plane
+            </SelectItem>
+            <SelectItem key="bus" value="bus">
+              Bus
+            </SelectItem>
+          </Select>
         </ModalBody>
+
         <ModalFooter>
           <div className="flex w-full justify-center gap-4">
             <Button
@@ -115,7 +146,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
               className="bg-green-600 text-white shadow-green-200"
               type="submit"
             >
-              {type === "edit" ? "edit point" : "Add point"}
+              {type === "edit" ? "Edit Point" : "Add Point"}
             </Button>
           </div>
         </ModalFooter>
