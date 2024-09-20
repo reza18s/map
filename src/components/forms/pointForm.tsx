@@ -115,7 +115,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
               className="bg-green-600 text-white shadow-green-200"
               type="submit"
             >
-              Add point
+              {type === "edit" ? "edit point" : "Add point"}
             </Button>
           </div>
         </ModalFooter>

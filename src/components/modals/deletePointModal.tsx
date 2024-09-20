@@ -55,10 +55,10 @@ export const DeletePointModal = ({ data }: { data: IPoint }) => {
           <Button
             isLoading={isLoading}
             variant="shadow"
-            className="bg-green-600 text-white shadow-green-200"
+            className="bg-red-500 text-white shadow-green-200"
             onClick={deletePointHandler}
           >
-            Add point
+            remove point
           </Button>
         </div>
       </ModalFooter>
