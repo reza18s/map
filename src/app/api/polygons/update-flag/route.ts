@@ -8,10 +8,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { id, flag } = body;
 
+    // Update polygon flag based on provided id and flag
     await PolygonsModel.findOneAndUpdate({ _id: id }, { $set: { flag } });
 
     return NextResponse.json({ message: "Flag updated!" });
   } catch (err) {
-    return NextResponse.json({ message: err }, { status: 500 });
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }

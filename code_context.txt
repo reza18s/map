@@ -43,11 +43,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { id, flag } = body;
 
+    // Update polygon flag based on provided id and flag
     await PolygonsModel.findOneAndUpdate({ _id: id }, { $set: { flag } });
 
     return NextResponse.json({ message: "Flag updated!" });
   } catch (err) {
-    return NextResponse.json({ message: err }, { status: 500 });
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
 
@@ -56,17 +58,17 @@ import connectDB from "@/configs/db";
 import PolygonsModel from "@/models/PolygonModel";
 import { NextResponse } from "next/server";
 
+// Create a new polygon
 export async function POST(req: Request) {
   try {
-    await connectDB(); // Ensure the DB connection is correct
+    await connectDB(); // Ensure DB connection is successful
     const body = await req.json();
     const { name, points, flag } = body;
 
-    if (!name || !points || !flag) {
+    if (!name || !points || flag === undefined) {
       throw new Error("Missing required fields");
     }
 
-    // Create a new polygon in the database
     const polygon = await PolygonsModel.create({
       name,
       points,
@@ -74,25 +76,67 @@ export async function POST(req: Request) {
       isPolygon: true,
     });
 
-    return NextResponse.json(
-      { message: "Polygon created successfully!", polygon },
-      { status: 200 },
-    );
+    return NextResponse.json({
+      message: "Polygon created successfully!",
+      polygon,
+    });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("Error creating polygon:", err);
+    console.error("Error creating polygon:", err); // Log the error
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// Get polygons (without deleted ones)
+export async function GET() {
+  try {
+    await connectDB();
+    const polygons = await PolygonsModel.find({
+      isPolygon: true,
+      deletedAt: null,
+      flag: 1,
+    });
+    return NextResponse.json(polygons);
+  } catch (err) {
     // @ts-expect-error the
     return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
 
-export async function GET() {
+// Update polygon
+export async function PUT(req: Request) {
   try {
     await connectDB();
-    const polygons = await PolygonsModel.find({ isPolygon: true, flag: 1 });
-    return NextResponse.json(polygons);
+    const body = await req.json();
+    const { id, name, points, flag } = body;
+
+    await PolygonsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { name, points, flag } },
+    );
+
+    return NextResponse.json({ message: "Polygon updated!" });
   } catch (err) {
-    return NextResponse.json({ message: err }, { status: 500 });
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// Soft delete polygon by setting `deletedAt`
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    await PolygonsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { deletedAt: new Date() } },
+    );
+
+    return NextResponse.json({ message: "Polygon deleted successfully!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
 
@@ -274,17 +318,42 @@ export default function Home() {
 @tailwind components;
 @tailwind utilities;
 
-// File: src/helper/drawPolygon.ts
-import { postData } from "@/services/API";
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
 
+// File: src/helper/drawPolygon.ts
+/* eslint-disable no-console */
+import { deleteData, postData, putData } from "@/services/API";
+import { IPolygon } from "@/types";
 import L from "leaflet";
-export const DrawPolygon = async (map: L.Map, callBack: () => void) => {
+
+// DrawPolygon Function
+export const DrawPolygon = async (
+  map: L.Map,
+  callBack: () => Promise<IPolygon[]>,
+) => {
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 
+  // Add existing polygons from the database to drawnItems
+  callBack().then((data) => {
+    data.forEach((polygon) => {
+      const layer = L.polygon(
+        polygon.points.map((point) => [point.lat, point.lng]),
+        { interactive: true }, // Ensure polygons are interactive
+      );
+      // @ts-expect-error the
+      layer.options.id = polygon._id; // Store the polygon's DB ID in the layer options
+      drawnItems.addLayer(layer);
+    });
+  });
+
+  // Create draw control for editing and deleting
   const drawControl = new L.Control.Draw({
     draw: {
-      //@ts-expect-error the
+      // @ts-expect-error the
       polygon: true,
       marker: false,
       polyline: false,
@@ -293,30 +362,89 @@ export const DrawPolygon = async (map: L.Map, callBack: () => void) => {
       circlemarker: false,
     },
     edit: {
-      featureGroup: drawnItems,
+      featureGroup: drawnItems, // Make sure this includes your polygons
+      // @ts-expect-error the
+      edit: true, // Enable editing
+      remove: true, // Enable deleting
     },
   });
 
   map.addControl(drawControl);
 
+  // Handle polygon creation
   map.on(L.Draw.Event.CREATED, function (event: any) {
     const layer = event.layer;
-    drawnItems.addLayer(layer);
+    drawnItems.addLayer(layer); // Add to drawnItems for editing/removing
     const latlngs = layer.getLatLngs()[0].map((latlng: L.LatLng) => ({
       lat: latlng.lat,
       lng: latlng.lng,
     }));
     const name = prompt("Enter a name for the polygon:");
 
-    if (name) {
-      return postData("/api/polygons", {
-        name,
-        points: latlngs,
-        flag: 1,
-      }).then(() => {
-        callBack();
-      });
+    if (!name) {
+      alert("Polygon name is required!");
+      return;
     }
+
+    postData("/api/polygons", { name, points: latlngs, flag: 1 })
+      .then((response) => {
+        const newPolygon = response.data.polygon; // Get the new polygon with its ID from the response
+        layer.options.id = newPolygon._id; // Set the polygon's DB ID in the layer options
+        callBack();
+      })
+      .catch((err) => {
+        console.error("Error creating polygon:", err);
+        alert("Failed to create the polygon. Please try again.");
+      });
+  });
+
+  // Handle polygon editing
+  map.on(L.Draw.Event.EDITED, function (event: any) {
+    const layers = event.layers;
+    layers.eachLayer(function (layer: any) {
+      const updatedLatLngs = layer.getLatLngs()[0].map((latlng: L.LatLng) => ({
+        lat: latlng.lat,
+        lng: latlng.lng,
+      }));
+
+      const id = layer.options.id; // Retrieve the DB ID from the layer options
+      if (!id) {
+        console.error("No ID found for the polygon.");
+        return;
+      }
+
+      // Update polygon in the database
+      putData("/api/polygons", { id, points: updatedLatLngs }) // Change to PUT method
+        .then(() => {
+          callBack(); // Refresh or reload polygons
+        })
+        .catch((err) => {
+          console.error("Error updating polygon:", err);
+          alert("Failed to update the polygon. Please try again.");
+        });
+    });
+  });
+
+  // Handle polygon deletion
+  map.on(L.Draw.Event.DELETED, function (event: any) {
+    const layers = event.layers;
+    layers.eachLayer(function (layer: any) {
+      const id = layer.options.id; // Retrieve the DB ID from the layer options
+      if (!id) {
+        console.error("No ID found for the polygon.");
+        return;
+      }
+
+      // Delete polygon from the database
+      deleteData("/api/polygons", { id })
+        .then(() => {
+          callBack();
+        })
+        .catch((err) => {
+          console.error("Error deleting polygon:", err);
+          alert("Failed to delete the polygon. Please try again.");
+        });
+    });
   });
 };
 
@@ -393,7 +521,9 @@ export const controlSaveTiles = ({
       </svg>
     </div>`,
   });
-  controlSaveTiles.addTo(map);
+  if (controlSaveTiles) {
+    controlSaveTiles.addTo(map);
+  }
 
   let progress: number;
   tileLayerOffline.on("savestart", (e: any) => {
@@ -624,7 +754,7 @@ interface storeAction {
   setPolygons: (polygons: IPolygon[]) => void; // New setter for polygons
   getSettings: () => void;
   getAllPoints: () => void;
-  getAllPolygons: () => void; // New method to fetch polygons
+  getAllPolygons: () => Promise<IPolygon[]>;
   setIsLoading: (state: (() => boolean) | boolean) => void;
   setMap: (state: (() => L.Map | null) | (L.Map | null)) => void;
 }
@@ -675,11 +805,11 @@ export const useAppStore = create<storeType>((set) => ({
   },
 
   // Fetch all polygons
-  getAllPolygons: () => {
+  getAllPolygons: async () => {
     set({ isLoading: true });
-    getData("/api/polygons", {}).then((res) => {
-      set({ polygons: res.data, isLoading: false });
-    });
+    const res = await getData("/api/polygons", {});
+    set({ polygons: res.data, isLoading: false });
+    return res.data;
   },
 
   // Toggle the visibility of a polygon (flag update)
@@ -834,9 +964,12 @@ export const pointObject = z.object({
   frequency: z.number(),
 });
 export const settingsObject = z.object({
-  lat_settings: z.number(),
-  lng_settings: z.number(),
-  zoom: z.number(),
+  lat_settings: z.number().min(-90).max(90), // Validation for lat
+  lng_settings: z.number().min(-180).max(180), // Validation for lng
+  zoom: z
+    .number()
+    .min(0, { message: "Zoom must be at least 0" })
+    .max(22, { message: "Zoom must be at most 22" }), // Validation for zoom
 });
 
 // File: src/components/global/pointAction.tsx
@@ -1017,10 +1150,10 @@ export const DeletePointModal = ({ data }: { data: IPoint }) => {
           <Button
             isLoading={isLoading}
             variant="shadow"
-            className="bg-green-600 text-white shadow-green-200"
+            className="bg-red-500 text-white shadow-green-200"
             onClick={deletePointHandler}
           >
-            Add point
+            remove point
           </Button>
         </div>
       </ModalFooter>
@@ -1117,7 +1250,7 @@ export const Tables = () => {
   return (
     <Table
       classNames={{ wrapper: "bg-transparent shadow-none rounded-none" }}
-      className="max-h-fit"
+      className="max-h-fit overflow-scroll"
       aria-label="Example table with custom cells"
     >
       <TableHeader columns={columns}>
@@ -1173,9 +1306,8 @@ import { useModal } from "@/store/useModal";
 import { RefreshCw, SearchIcon, Settings, X } from "lucide-react";
 
 export const Toolbar = () => {
-  const { points, getAllPoints, isLoading, setPoints } = useAppStore(
-    (state) => state,
-  );
+  const { points, getAllPoints, isLoading, setPoints, getAllPolygons } =
+    useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
 
   const { register, setValue, watch } = useForm({
@@ -1188,17 +1320,12 @@ export const Toolbar = () => {
   const [date, setDate] = useState<RangeValue<DateValue>>();
   const [from, setFrom] = useState<TimeInputValue>();
   const [to, setTo] = useState<TimeInputValue>();
-
   const searchVal = watch("search");
-
-  // Search Points Handler
   const searchPointsHandler = () => {
     if (!searchVal) {
       getAllPoints(); // Reset points to default if no search value
       return;
     }
-
-    // Filter points based on search input
     const filteredPoints = points.filter((data) =>
       data.name.toLowerCase().includes(searchVal.toLowerCase()),
     );
@@ -1211,20 +1338,12 @@ export const Toolbar = () => {
     if (!date?.start || !date?.end) {
       return;
     }
-
-    // Create Date objects for the start and end of the date range
     //@ts-expect-error the
     const startDate = new Date(date.start); //@ts-expect-error the
     const endDate = new Date(date.end);
-
-    // Filter points by date range and time
     const filteredPoints = points.filter((point) => {
-      const pointDate = new Date(point.date); // Assuming point.date is a valid string
-
-      // Compare only dates
+      const pointDate = new Date(point.date);
       const isWithinDateRange = pointDate >= startDate && pointDate <= endDate;
-
-      // If both from and to times are provided, add time comparison
       if (from && to) {
         const pointTime = `${pointDate.getHours()}:${pointDate.getMinutes()}`;
         const fromTime = `${from.hour}:${from.minute}`;
@@ -1234,17 +1353,13 @@ export const Toolbar = () => {
           isWithinDateRange && pointTime >= fromTime && pointTime <= toTime
         );
       }
-
-      // Return true if only date comparison is needed
       return isWithinDateRange;
     });
-
-    // Update the points list with filtered results
     setPoints(filteredPoints);
   };
 
   return (
-    <div className="flex w-full items-center justify-between px-4">
+    <div className="flex w-full items-center justify-between px-4 pb-1">
       <div className="flex justify-center gap-16">
         <Input
           isRequired
@@ -1333,6 +1448,7 @@ export const Toolbar = () => {
         <button
           onClick={() => {
             getAllPoints();
+            getAllPolygons();
           }}
           className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
         >
@@ -1380,7 +1496,6 @@ export default function Map() {
     isLoading,
     setMap,
     getAllPolygons,
-    polygons,
     map,
   } = useAppStore((state) => state);
   const { setOpen, modal } = useModal((state) => state);
@@ -1390,26 +1505,29 @@ export default function Map() {
 
   // Fetch all points
   useEffect(() => {
+    if (!map) {
+      return;
+    }
     if (once) {
       setOnce(false);
       getAllPoints();
       getSettings();
       getAllPolygons();
-    }
 
-    if (map) {
-      DrawPolygon(map, getAllPolygons);
-      map.on("dblclick", (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng;
-        setOpen(
-          <Modals title="Create Point">
-            <PointForm type="create" />
-          </Modals>,
-          // @ts-expect-error thee
-          { point: { name: "", lat: lat, lng: lng, frequency: 0 } },
-        );
-      });
-      controlSaveTiles({ map, setProgress, setTotal });
+      if (map) {
+        DrawPolygon(map, getAllPolygons);
+        map.on("dblclick", (e: L.LeafletMouseEvent) => {
+          const { lat, lng } = e.latlng;
+          setOpen(
+            <Modals title="Create Point">
+              <PointForm type="create" />
+            </Modals>,
+            // @ts-expect-error thee
+            { point: { name: "", lat: lat, lng: lng, frequency: 0 } },
+          );
+        });
+        controlSaveTiles({ map, setProgress, setTotal });
+      }
     }
   }, [map]);
   useEffect(() => {
@@ -1424,54 +1542,43 @@ export default function Map() {
     <div className="flex size-full flex-col">
       <ModalProvider></ModalProvider>
       <div className={"relative size-full"}>
-        {isLoading ? (
-          <div className="flex size-full items-center justify-center bg-gray-50">
-            <Spinner label="please wait..." />
-          </div>
-        ) : (
-          <MapContainer
-            center={
-              settings?.lat
-                ? [settings.lat, settings.lng]
-                : [35.695246913723636, 51.41011318883557]
-            }
-            zoom={settings?.zoom ? settings?.zoom : 13}
-            scrollWheelZoom={true}
-            doubleClickZoom={false}
-            ref={setMap}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            <MarkerClusterGroup>
-              {points.length > 0 &&
-                points.map(
-                  (point) =>
-                    point.status === "active" && (
-                      <Mark
-                        key={point._id}
-                        point={point}
-                        setPointLabel={setPointLabel}
-                      ></Mark>
-                    ),
-                )}
-            </MarkerClusterGroup>
-            {polygons.length > 0 &&
-              polygons.map((polygon) => (
-                <Polygon
-                  key={polygon._id}
-                  positions={polygon.points.map((point) => [
-                    point.lat,
-                    point.lng,
-                  ])}
-                >
-                  <Tooltip permanent>{polygon.name}</Tooltip>
-                </Polygon>
-              ))}
-          </MapContainer>
-        )}
+        <MapContainer
+          center={
+            settings?.lat
+              ? [settings.lat, settings.lng]
+              : [35.695246913723636, 51.41011318883557]
+          }
+          zoom={settings?.zoom ? settings?.zoom : 13}
+          scrollWheelZoom={true}
+          doubleClickZoom={false}
+          ref={setMap}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {isLoading ? (
+            <div className="relative z-[999] flex size-full items-center justify-center bg-transparent">
+              <Spinner label="please wait..." />
+            </div>
+          ) : (
+            <>
+              <MarkerClusterGroup>
+                {points.length > 0 &&
+                  points.map(
+                    (point) =>
+                      point.status === "active" && (
+                        <Mark
+                          key={point._id}
+                          point={point}
+                          setPointLabel={setPointLabel}
+                        ></Mark>
+                      ),
+                  )}
+              </MarkerClusterGroup>
+            </>
+          )}
+        </MapContainer>
         {pointLabel?.lat && (
           <div
             className={
@@ -1485,7 +1592,7 @@ export default function Map() {
       </div>
 
       <div
-        className={`mt-3 flex w-full flex-col ${
+        className={`mt-3 flex w-full flex-col  ${
           showPointList ? "h-2/5" : "h-0 overflow-hidden"
         } transition-all duration-300`}
       >
@@ -1758,32 +1865,34 @@ export default function Sidebar() {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { settingsObject } from "@/validator";
 import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { postData } from "@/services/API";
+import { useAppStore } from "@/store/store";
+import { settingsObject } from "@/validator";
 export const SettingsForm = () => {
   const { setIsLoading, isLoading, setClose } = useModal((state) => state);
+  const settings = useAppStore((state) => state.settings);
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<z.infer<typeof settingsObject>>({
     resolver: zodResolver(settingsObject),
-
+    mode: "onBlur",
     defaultValues: {
-      lat_settings: 0,
-      lng_settings: 0,
-      zoom: 11,
+      lat_settings: settings?.lat || 35.694523130867424,
+      lng_settings: settings?.lng || 51.30922197948697,
+      zoom: settings?.zoom || 11,
     },
   });
-
   const submitHandler = (data: z.infer<typeof settingsObject>) => {
     setIsLoading(true);
     postData("/api/settings", {
       lat: data.lat_settings,
       lng: data.lng_settings,
-      zoom: data.zoom,
+      zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
     })
       .then(() => {
         setIsLoading(false);
@@ -1806,8 +1915,13 @@ export const SettingsForm = () => {
             labelPlacement="outside"
             placeholder="Enter point lat"
             isInvalid={!!errors.lat_settings}
-            errorMessage="lat is required"
-            {...register("lat_settings", { required: true })}
+            errorMessage={
+              errors.lat_settings ? errors.lat_settings.message : ""
+            }
+            {...register("lat_settings", {
+              required: true,
+              valueAsNumber: true,
+            })}
           />
 
           <Input
@@ -1816,8 +1930,13 @@ export const SettingsForm = () => {
             labelPlacement="outside"
             placeholder="Enter point lng"
             isInvalid={!!errors.lng_settings}
-            errorMessage="lng is required"
-            {...register("lng_settings", { required: true })}
+            errorMessage={
+              errors.lng_settings ? errors.lng_settings.message : ""
+            }
+            {...register("lng_settings", {
+              required: true,
+              valueAsNumber: true,
+            })}
           />
 
           <Input
@@ -1826,21 +1945,26 @@ export const SettingsForm = () => {
             labelPlacement="outside"
             placeholder="Enter map zoom"
             isInvalid={!!errors.zoom}
-            errorMessage="zoom is required"
-            {...register("zoom", { required: true })}
+            errorMessage={errors.zoom ? errors.zoom.message : ""}
+            {...register("zoom", { required: true, valueAsNumber: true })}
           />
         </div>
       </ModalBody>
       <ModalFooter>
         <div className="flex w-full justify-center gap-4">
-          <Button color="danger" variant="light" onClick={() => setClose()}>
+          <Button
+            color="danger"
+            variant="light"
+            type="button"
+            onClick={() => setClose()}
+          >
             Close
           </Button>
           <Button
             isLoading={isLoading}
             variant="shadow"
             className="bg-green-600 text-white shadow-green-200"
-            onClick={handleSubmit(submitHandler)}
+            type="submit"
           >
             Save
           </Button>
@@ -1918,7 +2042,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point name"
             isInvalid={!!errors.name}
-            errorMessage="name is required"
+            errorMessage={errors.name ? errors.name.message : ""}
             {...register("name", { required: true })}
           />
 
@@ -1928,8 +2052,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point lat"
             isInvalid={!!errors.lat}
-            errorMessage="lat is required"
-            {...register("lat", { required: true })}
+            errorMessage={errors.lat ? errors.lat.message : ""}
+            {...register("lat", { required: true, valueAsNumber: true })}
           />
 
           <Input
@@ -1938,8 +2062,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point lng"
             isInvalid={!!errors.lng}
-            errorMessage="lng is required"
-            {...register("lng", { required: true })}
+            errorMessage={errors.lng ? errors.lng.message : ""}
+            {...register("lng", { required: true, valueAsNumber: true })}
           />
 
           <Input
@@ -1948,8 +2072,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point frequency"
             isInvalid={!!errors.frequency}
-            errorMessage="frequency is required"
-            {...register("frequency", { required: true })}
+            errorMessage={errors.frequency ? errors.frequency.message : ""}
+            {...register("frequency", { required: true, valueAsNumber: true })}
           />
         </ModalBody>
         <ModalFooter>
@@ -1968,7 +2092,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
               className="bg-green-600 text-white shadow-green-200"
               type="submit"
             >
-              Add point
+              {type === "edit" ? "edit point" : "Add point"}
             </Button>
           </div>
         </ModalFooter>
@@ -2002,6 +2126,19 @@ export const postData = async (
     });
   }
   return servicesApi.post(param, data);
+};
+export const putData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.put(param, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.put(param, data); // Use PUT instead of POST
 };
 
 export const getData = async (

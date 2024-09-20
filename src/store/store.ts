@@ -21,7 +21,7 @@ interface storeAction {
   setPolygons: (polygons: IPolygon[]) => void; // New setter for polygons
   getSettings: () => void;
   getAllPoints: () => void;
-  getAllPolygons: () => void; // New method to fetch polygons
+  getAllPolygons: () => Promise<IPolygon[]>;
   setIsLoading: (state: (() => boolean) | boolean) => void;
   setMap: (state: (() => L.Map | null) | (L.Map | null)) => void;
 }
@@ -72,11 +72,11 @@ export const useAppStore = create<storeType>((set) => ({
   },
 
   // Fetch all polygons
-  getAllPolygons: () => {
+  getAllPolygons: async () => {
     set({ isLoading: true });
-    getData("/api/polygons", {}).then((res) => {
-      set({ polygons: res.data, isLoading: false });
-    });
+    const res = await getData("/api/polygons", {});
+    set({ polygons: res.data, isLoading: false });
+    return res.data;
   },
 
   // Toggle the visibility of a polygon (flag update)

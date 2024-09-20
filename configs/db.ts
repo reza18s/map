@@ -1,15 +1,21 @@
 import mongoose from "mongoose";
-const connectDB = async () => {
+
+let isConnected = false; // Track the database connection status
+
+export const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
   try {
-    if (mongoose.connections[0].readyState) {
-      return true;
-    } else {
-      await mongoose.connect(process.env.MONGO_URL!);
-      console.log("connect success");
+    if (!mongoose.connections[0].readyState) {
+      await mongoose.connect(process.env.MONGO_URL!, {
+        useUnifiedTopology: true,
+      });
+      isConnected = true;
+      console.log("Database connected");
     }
   } catch (err) {
-    console.log(err);
+    console.error("Database connection error:", err);
+    throw err; // Ensure error bubbles up
   }
 };
-
-export default connectDB;

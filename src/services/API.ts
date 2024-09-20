@@ -23,6 +23,19 @@ export const postData = async (
   }
   return servicesApi.post(param, data);
 };
+export const putData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.put(param, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.put(param, data); // Use PUT instead of POST
+};
 
 export const getData = async (
   param: string,

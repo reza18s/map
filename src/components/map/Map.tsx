@@ -34,7 +34,6 @@ export default function Map() {
     isLoading,
     setMap,
     getAllPolygons,
-    polygons,
     map,
   } = useAppStore((state) => state);
   const { setOpen, modal } = useModal((state) => state);
@@ -44,26 +43,29 @@ export default function Map() {
 
   // Fetch all points
   useEffect(() => {
+    if (!map) {
+      return;
+    }
     if (once) {
       setOnce(false);
       getAllPoints();
       getSettings();
       getAllPolygons();
-    }
 
-    if (map) {
-      DrawPolygon(map, getAllPolygons);
-      map.on("dblclick", (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng;
-        setOpen(
-          <Modals title="Create Point">
-            <PointForm type="create" />
-          </Modals>,
-          // @ts-expect-error thee
-          { point: { name: "", lat: lat, lng: lng, frequency: 0 } },
-        );
-      });
-      controlSaveTiles({ map, setProgress, setTotal });
+      if (map) {
+        DrawPolygon(map, getAllPolygons);
+        map.on("dblclick", (e: L.LeafletMouseEvent) => {
+          const { lat, lng } = e.latlng;
+          setOpen(
+            <Modals title="Create Point">
+              <PointForm type="create" />
+            </Modals>,
+            // @ts-expect-error thee
+            { point: { name: "", lat: lat, lng: lng, frequency: 0 } },
+          );
+        });
+        controlSaveTiles({ map, setProgress, setTotal });
+      }
     }
   }, [map]);
   useEffect(() => {
@@ -112,18 +114,6 @@ export default function Map() {
                       ),
                   )}
               </MarkerClusterGroup>
-              {polygons.length > 0 &&
-                polygons.map((polygon) => (
-                  <Polygon
-                    key={polygon._id}
-                    positions={polygon.points.map((point) => [
-                      point.lat,
-                      point.lng,
-                    ])}
-                  >
-                    <Tooltip permanent>{polygon.name}</Tooltip>
-                  </Polygon>
-                ))}
             </>
           )}
         </MapContainer>
