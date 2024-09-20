@@ -1,4 +1,4 @@
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PolygonsModel from "@/models/PolygonModel";
 import { NextResponse } from "next/server";
 

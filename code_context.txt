@@ -1,5 +1,3 @@
-// File: src/uitils/index.ts
-
 // File: src/app/providers.tsx
 "use client";
 import { NextUIProvider } from "@nextui-org/react";
@@ -12,17 +10,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
 import { Providers } from "./providers";
 import "./globals.css";
 import "../css/style.css";
+import { connectDB } from "@/configs/db";
 
 export const metadata = {
   title: "Map",
   description: "Map Selector by shahyad karimi",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await connectDB();
   return (
     <html lang="en">
       <body>
@@ -33,7 +33,7 @@ export default function RootLayout({
 }
 
 // File: src/app/api/polygons/update-flag/route.ts
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PolygonsModel from "@/models/PolygonModel";
 import { NextResponse } from "next/server";
 
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
 }
 
 // File: src/app/api/polygons/route.ts
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PolygonsModel from "@/models/PolygonModel";
 import { NextResponse } from "next/server";
 
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       polygon,
     });
   } catch (err) {
-    console.error("Error creating polygon:", err); // Log the error
+    // @ts-expect-error the
     return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
@@ -141,7 +141,7 @@ export async function DELETE(req: Request) {
 }
 
 // File: src/app/api/settings/route.ts
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import SettingsModel from "@/models/SettingsModel";
 import { NextResponse } from "next/server";
 
@@ -179,7 +179,7 @@ export async function GET() {
 }
 
 // File: src/app/api/points/route.ts
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
@@ -215,7 +215,24 @@ export async function GET() {
     return NextResponse.json({ message: err }, { status: 500 });
   }
 }
+// Update polygon
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id, name, points, flag } = body;
 
+    await PointsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { name, points, flag } },
+    );
+
+    return NextResponse.json({ message: "Polygon updated!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
 export async function DELETE(req: Request) {
   try {
     await connectDB();
@@ -250,29 +267,8 @@ export async function POST(req: Request) {
   }
 }
 
-// File: src/app/api/points/update-point/route.ts
-import connectDB from "@/configs/db";
-import PointsModel from "@/models/pointsModel";
-import { NextResponse } from "next/server";
-
-export async function POST(req: Request) {
-  try {
-    await connectDB();
-    const body = await req.json();
-    const { name, lat, lng, frequency, id } = body;
-
-    await PointsModel.findOneAndUpdate(
-      { _id: id },
-      { $set: { name, lat, lng, frequency } },
-    );
-    return NextResponse.json({ message: "Point updated!" });
-  } catch (err) {
-    return NextResponse.json({ message: err }, { status: 500 });
-  }
-}
-
 // File: src/app/api/points/change-status/route.ts
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
@@ -291,6 +287,114 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Point status updated!" });
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/lines/route.ts
+import { NextResponse } from "next/server";
+import LineModel from "@/models/LineModel";
+import { connectDB } from "@/configs/db";
+import { handleError } from "@/utils/errorHandler";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { startPoint, endPoint, length, angle } = body;
+
+    if (
+      !startPoint ||
+      !endPoint ||
+      length === undefined ||
+      angle === undefined
+    ) {
+      return NextResponse.json(
+        { message: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    const line = await LineModel.create({
+      startPoint,
+      endPoint,
+      length,
+      angle,
+    });
+
+    return NextResponse.json({ message: "Line created successfully!", line });
+  } catch (err: any) {
+    return NextResponse.json({ message: "somthing went wrong" });
+  }
+}
+export async function GET() {
+  try {
+    await connectDB();
+    const lines = await LineModel.find({ deletedAt: null }); // Fetch all non-deleted lines
+    return NextResponse.json(lines);
+  } catch (err: any) {
+    return handleError(err);
+  }
+}
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "Line ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const deletedLine = await LineModel.findOneAndUpdate(
+      { _id: id, deletedAt: null }, // Ensure that the line hasn't been soft-deleted already
+      { $set: { deletedAt: new Date() } },
+      { new: true },
+    );
+
+    if (!deletedLine) {
+      return NextResponse.json({ message: "Line not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      message: "Line deleted successfully!",
+      deletedLine,
+    });
+  } catch (err: any) {
+    return handleError(err);
+  }
+}
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id, startPoint, endPoint, length, angle } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "Line ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const updatedLine = await LineModel.findOneAndUpdate(
+      { _id: id, deletedAt: null }, // Ensure that the line exists and hasn't been soft-deleted
+      { $set: { startPoint, endPoint, length, angle } },
+      { new: true }, // Return the updated document
+    );
+
+    if (!updatedLine) {
+      return NextResponse.json({ message: "Line not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      message: "Line updated successfully!",
+      updatedLine,
+    });
+  } catch (err: any) {
+    return handleError(err);
   }
 }
 
@@ -322,6 +426,118 @@ export default function Home() {
   width: 0;
   height: 0;
 }
+
+// File: src/helper/drawLine.ts
+import L from "leaflet";
+import "leaflet-draw";
+
+// Function to calculate distance using the Haversine formula
+const calculateDistance = (point1: L.LatLng, point2: L.LatLng): number => {
+  const R = 6371e3; // Radius of the Earth in meters
+  const φ1 = (point1.lat * Math.PI) / 180;
+  const φ2 = (point2.lat * Math.PI) / 180;
+  const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
+  const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c; // Distance in meters
+  return distance;
+};
+
+// Function to calculate angle in degrees between two points
+const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
+  const Δλ = point2.lng - point1.lng;
+  const Δφ = point2.lat - point1.lat;
+  const angle = (Math.atan2(Δφ, Δλ) * 180) / Math.PI; // Angle in degrees
+  return angle;
+};
+
+// Updated DrawLine function for drawing lines, calculating distance and angle
+export const DrawLine = (map: L.Map) => {
+  const drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  const drawControl = new L.Control.Draw({
+    draw: {
+      polygon: false,
+      marker: false,
+      polyline: true, // Enable line drawing
+      rectangle: false,
+      circle: false,
+      circlemarker: false,
+    },
+    edit: {
+      featureGroup: drawnItems, // Enable editing and removing of drawn lines
+      edit: true,
+      remove: true,
+    },
+  });
+
+  map.addControl(drawControl);
+
+  // Event listener when a line is created
+  map.on(L.Draw.Event.CREATED, function (event: L.DrawEvents.Created) {
+    const layer = event.layer;
+    drawnItems.addLayer(layer); // Add the drawn line to the group
+
+    const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
+
+    if (latlngs.length >= 2) {
+      const point1 = latlngs[0]; // Starting point
+      const point2 = latlngs[1]; // Ending point
+
+      // Calculate distance and angle
+      const distance = calculateDistance(point1, point2);
+      const angle = calculateAngle(point1, point2);
+
+      // Display the distance and angle on the map as a popup
+      const popupContent = `
+        <strong>Line Info</strong><br>
+        Length: ${(distance / 1000).toFixed(2)} km<br>
+        Angle: ${angle.toFixed(2)}°
+      `;
+
+      layer.bindPopup(popupContent).openPopup();
+    }
+  });
+
+  // Handle line editing events
+  map.on(L.Draw.Event.EDITED, function (event: L.DrawEvents.Edited) {
+    // Cast the event to L.DrawEvents.Edited
+    const layers = event.layers;
+    layers.eachLayer(function (layer: L.Layer) {
+      const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
+
+      if (latlngs.length >= 2) {
+        const point1 = latlngs[0];
+        const point2 = latlngs[1];
+
+        const distance = calculateDistance(point1, point2);
+        const angle = calculateAngle(point1, point2);
+
+        const popupContent = `
+          <strong>Line Info (Updated)</strong><br>
+          Length: ${(distance / 1000).toFixed(2)} km<br>
+          Angle: ${angle.toFixed(2)}°
+        `;
+
+        layer.bindPopup(popupContent).openPopup(); // Update popup with new values
+      }
+    });
+  } as L.LeafletEventHandlerFn); // Casting the event handler
+
+  // Handle line deletion events
+  map.on(L.Draw.Event.DELETED, function (event: L.DrawEvents.Deleted) {
+    const layers = event.layers;
+    layers.eachLayer(function (layer: L.Layer) {
+      drawnItems.removeLayer(layer); // Remove the deleted layer from the group
+    });
+  } as L.LeafletEventHandlerFn); // Casting the event handler
+};
 
 // File: src/helper/drawPolygon.ts
 /* eslint-disable no-console */
@@ -684,6 +900,16 @@ baseLayer.on("savetileend", () => {
   progress += 1;
   document.getElementById("progress")!.innerHTML = progress.toString();
 });
+
+// File: src/utils/index.ts
+
+// File: src/utils/errorHandler.ts
+import { NextResponse } from "next/server";
+
+export const handleError = (err: Error, status: number = 500) => {
+  console.error(err); // log the  error
+  return NextResponse.json({ message: err.message }, { status: 500 });
+};
 
 // File: src/store/useModal.ts
 import { IPoint } from "@/types";
@@ -1463,7 +1689,7 @@ export const Toolbar = () => {
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { MapContainer, Polygon, TileLayer, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer } from "react-leaflet";
 import { Spinner } from "@nextui-org/react";
 import { useAppStore } from "@/store/store";
 import { IPoint } from "@/types";
@@ -1484,6 +1710,7 @@ import L from "leaflet";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet/dist/leaflet.css";
 import { controlSaveTiles } from "@/helper/controlSaveTiles";
+import { DrawLine } from "@/helper/drawLine";
 export default function Map() {
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
@@ -1516,6 +1743,13 @@ export default function Map() {
 
       if (map) {
         DrawPolygon(map, getAllPolygons);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+
+        // فراخوانی تابع ترسیم خطوط
+        DrawLine(map);
         map.on("dblclick", (e: L.LeafletMouseEvent) => {
           const { lat, lng } = e.latlng;
           setOpen(
@@ -1977,7 +2211,7 @@ export const SettingsForm = () => {
 // File: src/components/forms/pointForm.tsx
 "use client";
 
-import { postData } from "@/services/API";
+import { postData, putData } from "@/services/API";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -2009,7 +2243,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const submitHandler = (newPoint: z.infer<typeof pointObject>) => {
     if (type == "edit") {
       setIsLoading(true);
-      postData("/api/points/update-point", {
+      putData("/api/points/", {
         ...newPoint,
         id: data.point?._id,
       }).then(() => {
@@ -2183,20 +2417,24 @@ export const ModalProvider = () => {
 
 // File: configs/db.ts
 import mongoose from "mongoose";
-const connectDB = async () => {
+
+let isConnected = false; // Track the database connection status
+
+export const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
   try {
-    if (mongoose.connections[0].readyState) {
-      return true;
-    } else {
+    if (!mongoose.connections[0].readyState) {
       await mongoose.connect(process.env.MONGO_URL!);
-      console.log("connect success");
+      isConnected = true;
+      console.log("Database connected");
     }
   } catch (err) {
-    console.log(err);
+    console.error("Database connection error:", err);
+    throw err; // Ensure error bubbles up
   }
 };
-
-export default connectDB;
 
 // File: models/PolygonModel.ts
 import mongoose from "mongoose";
@@ -2213,6 +2451,32 @@ const PolygonsModel =
   mongoose.models.Polygons || mongoose.model("Polygons", polygonSchema);
 
 export default PolygonsModel;
+
+// File: models/LineModel.ts
+// models/LineModel.ts
+import mongoose from "mongoose";
+
+// تعریف اسکیمای خط
+const lineSchema = new mongoose.Schema({
+  startPoint: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  endPoint: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  length: { type: Number, required: true }, // طول خط
+  angle: { type: Number, required: true }, // زاویه خط
+  createdAt: { type: Date, default: Date.now }, // تاریخ ایجاد خط
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // کاربری که خط را ایجاد کرده است (اختیاری)
+  deletedAt: { type: Date, default: null }, // تاریخ حذف (برای حذف نرم)
+});
+
+// ایجاد مدل خط با استفاده از اسکیمای تعریف‌شده
+const LineModel = mongoose.models.Lines || mongoose.model("Lines", lineSchema);
+
+export default LineModel;
 
 // File: models/SettingsModel.ts
 import mongoose from "mongoose";

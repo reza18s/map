@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { MapContainer, Polygon, TileLayer, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer } from "react-leaflet";
 import { Spinner } from "@nextui-org/react";
 import { useAppStore } from "@/store/store";
 import { IPoint } from "@/types";
@@ -14,7 +14,7 @@ import { Toolbar } from "./toolbar";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { DownloadModal } from "../modals/downloadModal";
 import { Mark } from "./mark";
-import { DrawPolygon } from "@/helper/drawPolygon";
+import { Draw } from "@/helper/draw";
 import "leaflet.offline";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -28,12 +28,12 @@ export default function Map() {
   const {
     showPointList,
     points,
-    getAllPoints,
-    getSettings,
     settings,
     isLoading,
     setMap,
     getAllPolygons,
+    getAllLines,
+    refreshAllData,
     map,
   } = useAppStore((state) => state);
   const { setOpen, modal } = useModal((state) => state);
@@ -48,12 +48,10 @@ export default function Map() {
     }
     if (once) {
       setOnce(false);
-      getAllPoints();
-      getSettings();
-      getAllPolygons();
+      refreshAllData();
 
       if (map) {
-        DrawPolygon(map, getAllPolygons);
+        Draw(map, getAllPolygons, getAllLines);
         map.on("dblclick", (e: L.LeafletMouseEvent) => {
           const { lat, lng } = e.latlng;
           setOpen(

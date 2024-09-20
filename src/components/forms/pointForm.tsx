@@ -1,6 +1,6 @@
 "use client";
 
-import { postData } from "@/services/API";
+import { postData, putData } from "@/services/API";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -32,7 +32,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const submitHandler = (newPoint: z.infer<typeof pointObject>) => {
     if (type == "edit") {
       setIsLoading(true);
-      postData("/api/points/update-point", {
+      putData("/api/points/", {
         ...newPoint,
         id: data.point?._id,
       }).then(() => {

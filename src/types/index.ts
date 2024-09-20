@@ -15,6 +15,13 @@ export interface ISettings {
   lng: number;
   zoom: number;
 }
+export interface ILine {
+  _id: string;
+  startPoint: { lat: number; lng: number };
+  endPoint: { lat: number; lng: number };
+  length: number;
+  angle: number;
+}
 
 export interface IFormData {
   name: string;

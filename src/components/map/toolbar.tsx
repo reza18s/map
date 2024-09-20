@@ -18,7 +18,7 @@ import { useModal } from "@/store/useModal";
 import { RefreshCw, SearchIcon, Settings, X } from "lucide-react";
 
 export const Toolbar = () => {
-  const { points, getAllPoints, isLoading, setPoints, getAllPolygons } =
+  const { points, getAllPoints, isLoading, setPoints, refreshAllData } =
     useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
 
@@ -159,8 +159,7 @@ export const Toolbar = () => {
 
         <button
           onClick={() => {
-            getAllPoints();
-            getAllPolygons();
+            refreshAllData();
           }}
           className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
         >

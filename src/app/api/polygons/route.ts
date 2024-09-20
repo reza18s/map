@@ -1,4 +1,4 @@
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PolygonsModel from "@/models/PolygonModel";
 import { NextResponse } from "next/server";
 
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       polygon,
     });
   } catch (err) {
-    console.error("Error creating polygon:", err); // Log the error
+    // @ts-expect-error the
     return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }

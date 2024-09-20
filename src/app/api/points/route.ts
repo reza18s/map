@@ -1,4 +1,4 @@
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
@@ -34,7 +34,24 @@ export async function GET() {
     return NextResponse.json({ message: err }, { status: 500 });
   }
 }
+// Update polygon
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id, name, points, flag } = body;
 
+    await PointsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { name, points, flag } },
+    );
+
+    return NextResponse.json({ message: "Polygon updated!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
 export async function DELETE(req: Request) {
   try {
     await connectDB();

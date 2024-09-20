@@ -1,4 +1,4 @@
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import SettingsModel from "@/models/SettingsModel";
 import { NextResponse } from "next/server";
 

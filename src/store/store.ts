@@ -1,6 +1,5 @@
-// File: src/store/store.ts
 import { getData, postData } from "@/services/API";
-import { IPoint, IPolygon, ISettings } from "@/types";
+import { ILine, IPoint, IPolygon, ISettings } from "@/types";
 import { create } from "zustand";
 import L from "leaflet";
 
@@ -8,7 +7,8 @@ interface dataType {
   map: L.Map | null;
   isLoading: boolean;
   points: IPoint[];
-  polygons: IPolygon[]; // New state for polygons
+  polygons: IPolygon[]; // State for polygons
+  lines: ILine[]; // New state for lines
   settings?: ISettings;
   addPointModal: boolean;
   showPointList: boolean;
@@ -18,10 +18,14 @@ interface storeAction {
   setAddPointModal: (value: boolean) => void;
   setShowPointList: (value: boolean) => void;
   setPoints: (points: IPoint[]) => void;
-  setPolygons: (polygons: IPolygon[]) => void; // New setter for polygons
+  setPolygons: (polygons: IPolygon[]) => void; // Setter for polygons
+  setLines: (lines: ILine[]) => void; // New setter for lines
+  addLine: (line: ILine) => void; // New action to add a line
   getSettings: () => void;
   getAllPoints: () => void;
+  refreshAllData: () => void;
   getAllPolygons: () => Promise<IPolygon[]>;
+  getAllLines: () => Promise<ILine[]>; // Fetch all lines
   setIsLoading: (state: (() => boolean) | boolean) => void;
   setMap: (state: (() => L.Map | null) | (L.Map | null)) => void;
 }
@@ -32,12 +36,13 @@ const initialData: dataType = {
   addPointModal: false,
   points: [],
   polygons: [], // Initialize polygons as an empty array
+  lines: [], // Initialize lines as an empty array
   showPointList: false,
 };
 
 export type storeType = dataType & storeAction;
 
-export const useAppStore = create<storeType>((set) => ({
+export const useAppStore = create<storeType>((set, get) => ({
   ...initialData,
 
   setAddPointModal: (value) => set(() => ({ addPointModal: value })),
@@ -48,6 +53,12 @@ export const useAppStore = create<storeType>((set) => ({
 
   // Set the polygons array
   setPolygons: (polygons) => set(() => ({ polygons })),
+
+  // Set the lines array
+  setLines: (lines) => set(() => ({ lines })),
+
+  // Add a new line
+  addLine: (line) => set((state) => ({ lines: [...state.lines, line] })),
 
   // Fetch settings (similar to previous implementation)
   getSettings: () => {
@@ -65,7 +76,6 @@ export const useAppStore = create<storeType>((set) => ({
         set({ points: res.data, isLoading: false });
       })
       .catch((error) => {
-        // eslint-disable-next-line no-console
         console.error("Error fetching points:", error);
         set({ isLoading: false });
       });
@@ -79,26 +89,19 @@ export const useAppStore = create<storeType>((set) => ({
     return res.data;
   },
 
-  // Toggle the visibility of a polygon (flag update)
-  togglePolygonVisibility: (id: string, currentFlag: number) => {
+  // Fetch all lines
+  getAllLines: async () => {
     set({ isLoading: true });
-    postData("/api/polygons/update-flag", {
-      id,
-      flag: currentFlag === 1 ? 0 : 1,
-    }).then(() => {
-      // Re-fetch polygons after updating visibility
-      getData("/api/polygons", {}).then((res) => {
-        set({ polygons: res.data, isLoading: false });
-      });
-    });
+    const res = await getData("/api/lines", {});
+    set({ lines: res.data, isLoading: false });
+    return res.data;
   },
 
   // Set the loading state
   setIsLoading: (state) => {
     if (typeof state == "boolean") {
       set({ isLoading: state });
-    }
-    if (typeof state == "function") {
+    } else if (typeof state == "function") {
       set({ isLoading: state() });
     }
   },
@@ -110,5 +113,11 @@ export const useAppStore = create<storeType>((set) => ({
     } else {
       set({ map: state });
     }
+  },
+  refreshAllData: () => {
+    get().getAllLines();
+    get().getAllPoints();
+    get().getAllPolygons();
+    get().getSettings();
   },
 }));

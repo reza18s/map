@@ -8,9 +8,7 @@ export const connectDB = async () => {
   }
   try {
     if (!mongoose.connections[0].readyState) {
-      await mongoose.connect(process.env.MONGO_URL!, {
-        useUnifiedTopology: true,
-      });
+      await mongoose.connect(process.env.MONGO_URL!);
       isConnected = true;
       console.log("Database connected");
     }
