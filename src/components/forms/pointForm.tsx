@@ -65,7 +65,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point name"
             isInvalid={!!errors.name}
-            errorMessage="name is required"
+            errorMessage={errors.name ? errors.name.message : ""}
             {...register("name", { required: true })}
           />
 
@@ -75,8 +75,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point lat"
             isInvalid={!!errors.lat}
-            errorMessage="lat is required"
-            {...register("lat", { required: true })}
+            errorMessage={errors.lat ? errors.lat.message : ""}
+            {...register("lat", { required: true, valueAsNumber: true })}
           />
 
           <Input
@@ -85,8 +85,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point lng"
             isInvalid={!!errors.lng}
-            errorMessage="lng is required"
-            {...register("lng", { required: true })}
+            errorMessage={errors.lng ? errors.lng.message : ""}
+            {...register("lng", { required: true, valueAsNumber: true })}
           />
 
           <Input
@@ -95,8 +95,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             labelPlacement="outside"
             placeholder="Enter point frequency"
             isInvalid={!!errors.frequency}
-            errorMessage="frequency is required"
-            {...register("frequency", { required: true })}
+            errorMessage={errors.frequency ? errors.frequency.message : ""}
+            {...register("frequency", { required: true, valueAsNumber: true })}
           />
         </ModalBody>
         <ModalFooter>

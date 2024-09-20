@@ -3,32 +3,34 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { settingsObject } from "@/validator";
 import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { postData } from "@/services/API";
+import { useAppStore } from "@/store/store";
+import { settingsObject } from "@/validator";
 export const SettingsForm = () => {
   const { setIsLoading, isLoading, setClose } = useModal((state) => state);
+  const settings = useAppStore((state) => state.settings);
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<z.infer<typeof settingsObject>>({
     resolver: zodResolver(settingsObject),
-
+    mode: "onBlur",
     defaultValues: {
-      lat_settings: 0,
-      lng_settings: 0,
-      zoom: 11,
+      lat_settings: settings?.lat || 35.694523130867424,
+      lng_settings: settings?.lng || 51.30922197948697,
+      zoom: settings?.zoom || 11,
     },
   });
-
   const submitHandler = (data: z.infer<typeof settingsObject>) => {
     setIsLoading(true);
     postData("/api/settings", {
       lat: data.lat_settings,
       lng: data.lng_settings,
-      zoom: data.zoom,
+      zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
     })
       .then(() => {
         setIsLoading(false);
@@ -51,8 +53,13 @@ export const SettingsForm = () => {
             labelPlacement="outside"
             placeholder="Enter point lat"
             isInvalid={!!errors.lat_settings}
-            errorMessage="lat is required"
-            {...register("lat_settings", { required: true })}
+            errorMessage={
+              errors.lat_settings ? errors.lat_settings.message : ""
+            }
+            {...register("lat_settings", {
+              required: true,
+              valueAsNumber: true,
+            })}
           />
 
           <Input
@@ -61,8 +68,13 @@ export const SettingsForm = () => {
             labelPlacement="outside"
             placeholder="Enter point lng"
             isInvalid={!!errors.lng_settings}
-            errorMessage="lng is required"
-            {...register("lng_settings", { required: true })}
+            errorMessage={
+              errors.lng_settings ? errors.lng_settings.message : ""
+            }
+            {...register("lng_settings", {
+              required: true,
+              valueAsNumber: true,
+            })}
           />
 
           <Input
@@ -71,21 +83,26 @@ export const SettingsForm = () => {
             labelPlacement="outside"
             placeholder="Enter map zoom"
             isInvalid={!!errors.zoom}
-            errorMessage="zoom is required"
-            {...register("zoom", { required: true })}
+            errorMessage={errors.zoom ? errors.zoom.message : ""}
+            {...register("zoom", { required: true, valueAsNumber: true })}
           />
         </div>
       </ModalBody>
       <ModalFooter>
         <div className="flex w-full justify-center gap-4">
-          <Button color="danger" variant="light" onClick={() => setClose()}>
+          <Button
+            color="danger"
+            variant="light"
+            type="button"
+            onClick={() => setClose()}
+          >
             Close
           </Button>
           <Button
             isLoading={isLoading}
             variant="shadow"
             className="bg-green-600 text-white shadow-green-200"
-            onClick={handleSubmit(submitHandler)}
+            type="submit"
           >
             Save
           </Button>

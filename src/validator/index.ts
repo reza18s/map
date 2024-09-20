@@ -9,7 +9,10 @@ export const pointObject = z.object({
   frequency: z.number(),
 });
 export const settingsObject = z.object({
-  lat_settings: z.number(),
-  lng_settings: z.number(),
-  zoom: z.number(),
+  lat_settings: z.number().min(-90).max(90), // Validation for lat
+  lng_settings: z.number().min(-180).max(180), // Validation for lng
+  zoom: z
+    .number()
+    .min(0, { message: "Zoom must be at least 0" })
+    .max(22, { message: "Zoom must be at most 22" }), // Validation for zoom
 });
