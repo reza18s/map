@@ -70,7 +70,9 @@ export const controlSaveTiles = ({
       </svg>
     </div>`,
   });
-  controlSaveTiles.addTo(map);
+  if (controlSaveTiles) {
+    controlSaveTiles.addTo(map);
+  }
 
   let progress: number;
   tileLayerOffline.on("savestart", (e: any) => {

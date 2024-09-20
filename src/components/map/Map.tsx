@@ -78,54 +78,55 @@ export default function Map() {
     <div className="flex size-full flex-col">
       <ModalProvider></ModalProvider>
       <div className={"relative size-full"}>
-        {isLoading ? (
-          <div className="flex size-full items-center justify-center bg-gray-50">
-            <Spinner label="please wait..." />
-          </div>
-        ) : (
-          <MapContainer
-            center={
-              settings?.lat
-                ? [settings.lat, settings.lng]
-                : [35.695246913723636, 51.41011318883557]
-            }
-            zoom={settings?.zoom ? settings?.zoom : 13}
-            scrollWheelZoom={true}
-            doubleClickZoom={false}
-            ref={setMap}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            <MarkerClusterGroup>
-              {points.length > 0 &&
-                points.map(
-                  (point) =>
-                    point.status === "active" && (
-                      <Mark
-                        key={point._id}
-                        point={point}
-                        setPointLabel={setPointLabel}
-                      ></Mark>
-                    ),
-                )}
-            </MarkerClusterGroup>
-            {polygons.length > 0 &&
-              polygons.map((polygon) => (
-                <Polygon
-                  key={polygon._id}
-                  positions={polygon.points.map((point) => [
-                    point.lat,
-                    point.lng,
-                  ])}
-                >
-                  <Tooltip permanent>{polygon.name}</Tooltip>
-                </Polygon>
-              ))}
-          </MapContainer>
-        )}
+        <MapContainer
+          center={
+            settings?.lat
+              ? [settings.lat, settings.lng]
+              : [35.695246913723636, 51.41011318883557]
+          }
+          zoom={settings?.zoom ? settings?.zoom : 13}
+          scrollWheelZoom={true}
+          doubleClickZoom={false}
+          ref={setMap}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {isLoading ? (
+            <div className="relative z-[999] flex size-full items-center justify-center bg-transparent">
+              <Spinner label="please wait..." />
+            </div>
+          ) : (
+            <>
+              <MarkerClusterGroup>
+                {points.length > 0 &&
+                  points.map(
+                    (point) =>
+                      point.status === "active" && (
+                        <Mark
+                          key={point._id}
+                          point={point}
+                          setPointLabel={setPointLabel}
+                        ></Mark>
+                      ),
+                  )}
+              </MarkerClusterGroup>
+              {polygons.length > 0 &&
+                polygons.map((polygon) => (
+                  <Polygon
+                    key={polygon._id}
+                    positions={polygon.points.map((point) => [
+                      point.lat,
+                      point.lng,
+                    ])}
+                  >
+                    <Tooltip permanent>{polygon.name}</Tooltip>
+                  </Polygon>
+                ))}
+            </>
+          )}
+        </MapContainer>
         {pointLabel?.lat && (
           <div
             className={
@@ -139,7 +140,7 @@ export default function Map() {
       </div>
 
       <div
-        className={`mt-3 flex w-full flex-col ${
+        className={`mt-3 flex w-full flex-col  ${
           showPointList ? "h-2/5" : "h-0 overflow-hidden"
         } transition-all duration-300`}
       >

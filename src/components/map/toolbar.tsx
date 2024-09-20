@@ -18,9 +18,8 @@ import { useModal } from "@/store/useModal";
 import { RefreshCw, SearchIcon, Settings, X } from "lucide-react";
 
 export const Toolbar = () => {
-  const { points, getAllPoints, isLoading, setPoints } = useAppStore(
-    (state) => state,
-  );
+  const { points, getAllPoints, isLoading, setPoints, getAllPolygons } =
+    useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
 
   const { register, setValue, watch } = useForm({
@@ -33,17 +32,12 @@ export const Toolbar = () => {
   const [date, setDate] = useState<RangeValue<DateValue>>();
   const [from, setFrom] = useState<TimeInputValue>();
   const [to, setTo] = useState<TimeInputValue>();
-
   const searchVal = watch("search");
-
-  // Search Points Handler
   const searchPointsHandler = () => {
     if (!searchVal) {
       getAllPoints(); // Reset points to default if no search value
       return;
     }
-
-    // Filter points based on search input
     const filteredPoints = points.filter((data) =>
       data.name.toLowerCase().includes(searchVal.toLowerCase()),
     );
@@ -56,20 +50,12 @@ export const Toolbar = () => {
     if (!date?.start || !date?.end) {
       return;
     }
-
-    // Create Date objects for the start and end of the date range
     //@ts-expect-error the
     const startDate = new Date(date.start); //@ts-expect-error the
     const endDate = new Date(date.end);
-
-    // Filter points by date range and time
     const filteredPoints = points.filter((point) => {
-      const pointDate = new Date(point.date); // Assuming point.date is a valid string
-
-      // Compare only dates
+      const pointDate = new Date(point.date);
       const isWithinDateRange = pointDate >= startDate && pointDate <= endDate;
-
-      // If both from and to times are provided, add time comparison
       if (from && to) {
         const pointTime = `${pointDate.getHours()}:${pointDate.getMinutes()}`;
         const fromTime = `${from.hour}:${from.minute}`;
@@ -79,17 +65,13 @@ export const Toolbar = () => {
           isWithinDateRange && pointTime >= fromTime && pointTime <= toTime
         );
       }
-
-      // Return true if only date comparison is needed
       return isWithinDateRange;
     });
-
-    // Update the points list with filtered results
     setPoints(filteredPoints);
   };
 
   return (
-    <div className="flex w-full items-center justify-between px-4">
+    <div className="flex w-full items-center justify-between px-4 pb-1">
       <div className="flex justify-center gap-16">
         <Input
           isRequired
@@ -178,6 +160,7 @@ export const Toolbar = () => {
         <button
           onClick={() => {
             getAllPoints();
+            getAllPolygons();
           }}
           className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
         >

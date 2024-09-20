@@ -86,7 +86,7 @@ export const Tables = () => {
   return (
     <Table
       classNames={{ wrapper: "bg-transparent shadow-none rounded-none" }}
-      className="max-h-fit"
+      className="max-h-fit overflow-scroll"
       aria-label="Example table with custom cells"
     >
       <TableHeader columns={columns}>

@@ -9,12 +9,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 
 // File: src/app/layout.tsx
-import { Inter } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 import "../css/style.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Map",
@@ -28,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>
@@ -82,7 +79,9 @@ export async function POST(req: Request) {
       { status: 200 },
     );
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error("Error creating polygon:", err);
+    // @ts-expect-error the
     return NextResponse.json({ message: err.message }, { status: 500 });
   }
 }
@@ -252,11 +251,7 @@ export async function POST(req: Request) {
 }
 
 // File: src/app/page.tsx
-// File: src/app/page.tsx
-"use client";
 import dynamic from "next/dynamic";
-import { useAppStore } from "@/store/store"; // Import the Zustand store
-import { useEffect } from "react";
 
 const Map = dynamic(() => import("@/components/map/Map"), {
   ssr: false,
@@ -266,35 +261,10 @@ const Sidebar = dynamic(() => import("@/components/sidebar/Sidebar"), {
 });
 
 export default function Home() {
-  const {
-    addPointModal,
-    setAddPointModal,
-    showPointList,
-    setShowPointList,
-    points,
-    setPoints,
-  } = useAppStore();
-
-  useEffect(() => {
-    // Fetch points data and update the store
-    // Example: fetchPoints().then((data) => setPoints(data));
-  }, []);
-
   return (
     <div className="flex h-screen w-full items-center">
-      <Sidebar
-        addPointModal={addPointModal}
-        setAddPointModal={setAddPointModal}
-        showPointList={showPointList}
-        setShowPointList={setShowPointList}
-      />
-      <Map
-        addPointModal={addPointModal}
-        setAddPointModal={setAddPointModal}
-        showPointList={showPointList}
-        setShowPointList={setShowPointList}
-        points={points}
-      />
+      <Sidebar />
+      <Map />
     </div>
   );
 }
@@ -698,6 +668,7 @@ export const useAppStore = create<storeType>((set) => ({
         set({ points: res.data, isLoading: false });
       })
       .catch((error) => {
+        // eslint-disable-next-line no-console
         console.error("Error fetching points:", error);
         set({ isLoading: false });
       });
@@ -869,6 +840,7 @@ export const settingsObject = z.object({
 });
 
 // File: src/components/global/pointAction.tsx
+"use client";
 import { Tooltip } from "@nextui-org/react";
 import React from "react";
 import { Modals } from "../modals";
@@ -988,6 +960,7 @@ export function Modals({
 }
 
 // File: src/components/modals/deletePointModal.tsx
+"use client";
 import React from "react";
 import { Modals } from ".";
 import { useModal } from "@/store/useModal";
@@ -1056,6 +1029,7 @@ export const DeletePointModal = ({ data }: { data: IPoint }) => {
 };
 
 // File: src/components/map/Table.tsx
+"use client";
 import React, { useState } from "react";
 import {
   Chip,
@@ -1165,6 +1139,7 @@ export const Tables = () => {
               <TableCell>
                 {renderCell(
                   item,
+                  //@ts-expect-error the
                   columnKey,
                   points.findIndex((p) => p._id === item._id) + 1,
                 )}
@@ -1178,6 +1153,7 @@ export const Tables = () => {
 };
 
 // File: src/components/map/toolbar.tsx
+"use client";
 import {
   Button,
   DateRangePicker,
@@ -1209,7 +1185,6 @@ export const Toolbar = () => {
     },
   });
 
-  const [rotateIcon, setRotateIcon] = useState(false);
   const [date, setDate] = useState<RangeValue<DateValue>>();
   const [from, setFrom] = useState<TimeInputValue>();
   const [to, setTo] = useState<TimeInputValue>();
@@ -1357,7 +1332,6 @@ export const Toolbar = () => {
 
         <button
           onClick={() => {
-            setRotateIcon(true);
             getAllPoints();
           }}
           className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
@@ -1370,6 +1344,8 @@ export const Toolbar = () => {
 };
 
 // File: src/components/map/Map.tsx
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { MapContainer, Polygon, TileLayer, Tooltip } from "react-leaflet";
 import { Spinner } from "@nextui-org/react";
@@ -1418,6 +1394,7 @@ export default function Map() {
       setOnce(false);
       getAllPoints();
       getSettings();
+      getAllPolygons();
     }
 
     if (map) {
@@ -1536,6 +1513,7 @@ const PointIcon = new L.Icon({
 export { PointIcon };
 
 // File: src/components/map/mark.tsx
+"use client";
 import { EditIcon, Trash2 } from "lucide-react";
 import React from "react";
 import { Marker, Popup, Tooltip } from "react-leaflet";
@@ -1638,6 +1616,7 @@ export const Mark = ({
 };
 
 // File: src/components/sidebar/Sidebar.tsx
+"use client"
 import React, { useState } from "react";
 import Image from "next/image";
 import { useModal } from "@/store/useModal";
@@ -1774,6 +1753,8 @@ export default function Sidebar() {
 }
 
 // File: src/components/forms/settingsForm.tsx
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -1870,6 +1851,8 @@ export const SettingsForm = () => {
 };
 
 // File: src/components/forms/pointForm.tsx
+"use client";
+
 import { postData } from "@/services/API";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -1994,6 +1977,63 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   );
 };
 
+// File: src/services/API.ts
+import axios from "axios";
+
+const servicesApi = axios.create({
+  withCredentials: false,
+  timeout: 60000,
+  headers: {
+    common: {
+      Accept: "application/json",
+    },
+  },
+});
+
+export const postData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.post(param, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.post(param, data);
+};
+
+export const getData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.get(param, {
+      params: data,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.get(param, { params: data });
+};
+
+export const deleteData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.delete(param, {
+      headers: { Authorization: `Bearer ${token}` },
+      data,
+    });
+  }
+  return servicesApi.delete(param, { data });
+};
+
 // File: src/providers/ModalProvider.tsx
 "use client";
 import React from "react";
@@ -2003,6 +2043,23 @@ export const ModalProvider = () => {
   const Model = useModal((state) => state.modal);
   return <>{Model}</>;
 };
+
+// File: configs/db.ts
+import mongoose from "mongoose";
+const connectDB = async () => {
+  try {
+    if (mongoose.connections[0].readyState) {
+      return true;
+    } else {
+      await mongoose.connect(process.env.MONGO_URL!);
+      console.log("connect success");
+    }
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+export default connectDB;
 
 // File: models/PolygonModel.ts
 import mongoose from "mongoose";
@@ -2071,22 +2128,4 @@ const schema = new mongoose.Schema({
 const PointsModel = mongoose.models.Points || mongoose.model("Points", schema);
 
 export default PointsModel;
-
-// File: configs/db.ts
-import mongoose from "mongoose";
-
-const connectDB = async () => {
-  try {
-    if (mongoose.connections[0].readyState) {
-      return;
-    } else {
-      await mongoose.connect(process.env.MONGO_URL!);
-      console.log("Connected to MongoDB");
-    }
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error);
-  }
-};
-
-export default connectDB;
 
