@@ -187,13 +187,14 @@ export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { lat, lng, date, deletedAt, name, frequency } = body;
+    const { lat, lng, date, deletedAt, name, frequency, iconType } = body;
 
     const points = await PointsModel.create({
       lat,
       lng,
       date,
       name,
+      iconType,
       frequency,
       deletedAt,
     });
@@ -215,16 +216,15 @@ export async function GET() {
     return NextResponse.json({ message: err }, { status: 500 });
   }
 }
-// Update polygon
 export async function PUT(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { id, name, points, flag } = body;
+    const { lat, lng, id, name, point, frequency, iconType } = body;
 
     await PointsModel.findOneAndUpdate(
       { _id: id },
-      { $set: { name, points, flag } },
+      { $set: { lat, lng, name, point, frequency, iconType } },
     );
 
     return NextResponse.json({ message: "Polygon updated!" });
@@ -250,7 +250,7 @@ export async function DELETE(req: Request) {
 }
 
 // File: src/app/api/points/search/route.ts
-import connectDB from "@/configs/db";
+import { connectDB } from "@/configs/db";
 import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
@@ -427,12 +427,11 @@ export default function Home() {
   height: 0;
 }
 
-// File: src/helper/drawLine.ts
-import L from "leaflet";
-import "leaflet-draw";
-
-// Function to calculate distance using the Haversine formula
-const calculateDistance = (point1: L.LatLng, point2: L.LatLng): number => {
+// File: src/helper/math.ts
+export const calculateDistance = (
+  point1: L.LatLng,
+  point2: L.LatLng,
+): number => {
   const R = 6371e3; // Radius of the Earth in meters
   const φ1 = (point1.lat * Math.PI) / 180;
   const φ2 = (point2.lat * Math.PI) / 180;
@@ -449,217 +448,239 @@ const calculateDistance = (point1: L.LatLng, point2: L.LatLng): number => {
 };
 
 // Function to calculate angle in degrees between two points
-const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
+export const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
   const Δλ = point2.lng - point1.lng;
   const Δφ = point2.lat - point1.lat;
   const angle = (Math.atan2(Δφ, Δλ) * 180) / Math.PI; // Angle in degrees
   return angle;
 };
 
-// Updated DrawLine function for drawing lines, calculating distance and angle
-export const DrawLine = (map: L.Map) => {
+// File: src/helper/draw.ts
+/* eslint-disable no-console */
+import { deleteData, postData, putData } from "@/services/API";
+import { ILine, IPolygon } from "@/types";
+import L, { LatLng } from "leaflet";
+import { calculateAngle, calculateDistance } from "./math";
+
+// Draw function to handle both lines and polygons
+export const Draw = async (
+  map: L.Map,
+  getAllPolygons: () => Promise<IPolygon[]>,
+  getAllLines: () => Promise<ILine[]>,
+) => {
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 
-  const drawControl = new L.Control.Draw({
-    draw: {
-      polygon: false,
-      marker: false,
-      polyline: true, // Enable line drawing
-      rectangle: false,
-      circle: false,
-      circlemarker: false,
-    },
-    edit: {
-      featureGroup: drawnItems, // Enable editing and removing of drawn lines
-      edit: true,
-      remove: true,
-    },
+  // Load existing polygons from the database
+  getAllPolygons().then((data) => {
+    data.forEach((polygon) => {
+      const layer = L.polygon(
+        polygon.points.map((point) => [point.lat, point.lng]),
+        { interactive: true },
+      );
+      //@ts-expect-error the
+      layer.options.id = polygon._id; // Store the polygon's DB ID in the layer options
+      drawnItems.addLayer(layer);
+    });
   });
-
-  map.addControl(drawControl);
-
-  // Event listener when a line is created
-  map.on(L.Draw.Event.CREATED, function (event: L.DrawEvents.Created) {
-    const layer = event.layer;
-    drawnItems.addLayer(layer); // Add the drawn line to the group
-
-    const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
-
-    if (latlngs.length >= 2) {
-      const point1 = latlngs[0]; // Starting point
-      const point2 = latlngs[1]; // Ending point
+  getAllLines().then((data) => {
+    data.forEach((line) => {
+      const latlngs = [
+        [line.startPoint.lat, line.startPoint.lng],
+        [line.endPoint.lat, line.endPoint.lng],
+      ];
+      //@ts-expect-error the
+      const layer = L.polyline(latlngs, { interactive: true });
+      //@ts-expect-error the
+      layer.options.id = line._id; // Store the line's DB ID in the layer options
+      drawnItems.addLayer(layer);
 
       // Calculate distance and angle
-      const distance = calculateDistance(point1, point2);
-      const angle = calculateAngle(point1, point2);
+      //@ts-expect-error the
+      const distance = calculateDistance(line.startPoint, line.endPoint);
+      //@ts-expect-error the
+      const angle = calculateAngle(line.startPoint, line.endPoint);
 
-      // Display the distance and angle on the map as a popup
       const popupContent = `
         <strong>Line Info</strong><br>
         Length: ${(distance / 1000).toFixed(2)} km<br>
         Angle: ${angle.toFixed(2)}°
       `;
-
       layer.bindPopup(popupContent).openPopup();
-    }
-  });
-
-  // Handle line editing events
-  map.on(L.Draw.Event.EDITED, function (event: L.DrawEvents.Edited) {
-    // Cast the event to L.DrawEvents.Edited
-    const layers = event.layers;
-    layers.eachLayer(function (layer: L.Layer) {
-      const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
-
-      if (latlngs.length >= 2) {
-        const point1 = latlngs[0];
-        const point2 = latlngs[1];
-
-        const distance = calculateDistance(point1, point2);
-        const angle = calculateAngle(point1, point2);
-
-        const popupContent = `
-          <strong>Line Info (Updated)</strong><br>
-          Length: ${(distance / 1000).toFixed(2)} km<br>
-          Angle: ${angle.toFixed(2)}°
-        `;
-
-        layer.bindPopup(popupContent).openPopup(); // Update popup with new values
-      }
-    });
-  } as L.LeafletEventHandlerFn); // Casting the event handler
-
-  // Handle line deletion events
-  map.on(L.Draw.Event.DELETED, function (event: L.DrawEvents.Deleted) {
-    const layers = event.layers;
-    layers.eachLayer(function (layer: L.Layer) {
-      drawnItems.removeLayer(layer); // Remove the deleted layer from the group
-    });
-  } as L.LeafletEventHandlerFn); // Casting the event handler
-};
-
-// File: src/helper/drawPolygon.ts
-/* eslint-disable no-console */
-import { deleteData, postData, putData } from "@/services/API";
-import { IPolygon } from "@/types";
-import L from "leaflet";
-
-// DrawPolygon Function
-export const DrawPolygon = async (
-  map: L.Map,
-  callBack: () => Promise<IPolygon[]>,
-) => {
-  const drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
-
-  // Add existing polygons from the database to drawnItems
-  callBack().then((data) => {
-    data.forEach((polygon) => {
-      const layer = L.polygon(
-        polygon.points.map((point) => [point.lat, point.lng]),
-        { interactive: true }, // Ensure polygons are interactive
-      );
-      // @ts-expect-error the
-      layer.options.id = polygon._id; // Store the polygon's DB ID in the layer options
-      drawnItems.addLayer(layer);
     });
   });
 
-  // Create draw control for editing and deleting
+  // Create draw control for both polygons and lines
   const drawControl = new L.Control.Draw({
     draw: {
-      // @ts-expect-error the
-      polygon: true,
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: { color: "#bada55" },
+      },
+      polyline: {
+        allowIntersection: false,
+      },
       marker: false,
-      polyline: false,
       rectangle: false,
       circle: false,
       circlemarker: false,
     },
     edit: {
-      featureGroup: drawnItems, // Make sure this includes your polygons
-      // @ts-expect-error the
-      edit: true, // Enable editing
-      remove: true, // Enable deleting
+      featureGroup: drawnItems, // Allow editing and removing of drawn shapes
+      edit: {
+        selectedPathOptions: {
+          color: "#666666",
+        },
+      },
+      remove: true,
     },
   });
-
   map.addControl(drawControl);
 
-  // Handle polygon creation
-  map.on(L.Draw.Event.CREATED, function (event: any) {
+  // Handle shape creation (either polygon or line)
+  //@ts-expect-error the
+  map.on(L.Draw.Event.CREATED, function (event: L.DrawEvents.Created) {
     const layer = event.layer;
-    drawnItems.addLayer(layer); // Add to drawnItems for editing/removing
-    const latlngs = layer.getLatLngs()[0].map((latlng: L.LatLng) => ({
-      lat: latlng.lat,
-      lng: latlng.lng,
-    }));
-    const name = prompt("Enter a name for the polygon:");
+    drawnItems.addLayer(layer);
 
-    if (!name) {
-      alert("Polygon name is required!");
-      return;
+    if (event.layerType === "polygon") {
+      const latlngs = (layer as L.Polygon).getLatLngs() as L.LatLng[][];
+      const flattenedLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+      const latlngsMapped = flattenedLatLngs.map((latlng) => ({
+        lat: (latlng as LatLng).lat,
+        lng: (latlng as LatLng).lng,
+      }));
+      const name = prompt("Enter a name for the polygon:");
+      if (!name) {
+        alert("Polygon name is required!");
+        return;
+      }
+      postData("/api/polygons", { name, points: latlngsMapped, flag: 1 })
+        .then((response) => {
+          const newPolygon = response.data.polygon;
+          //@ts-expect-error the
+          layer.options.id = newPolygon._id; // Assign the polygon ID from the response
+          getAllPolygons();
+        })
+        .catch((err) => {
+          console.error("Error creating polygon:", err);
+          alert("Failed to create the polygon. Please try again.");
+        });
+    } else if (event.layerType === "polyline") {
+      const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
+      if (latlngs.length >= 2) {
+        const point1 = latlngs[0];
+        const point2 = latlngs[1];
+        const distance = calculateDistance(point1, point2);
+        const angle = calculateAngle(point1, point2);
+
+        postData("/api/lines", {
+          startPoint: { lat: point1.lat, lng: point1.lng },
+          endPoint: { lat: point2.lat, lng: point2.lng },
+          length: distance,
+          angle,
+        })
+          .then((response) => {
+            //@ts-expect-error the
+            layer.options.id = response.data.line._id; // Assign the line ID from the response
+            console.log("Line saved successfully");
+          })
+          .catch((err) => {
+            console.error("Error saving line:", err);
+          });
+
+        const popupContent = `
+          <strong>Line Info</strong><br>
+          Length: ${(distance / 1000).toFixed(2)} km<br>
+          Angle: ${angle.toFixed(2)}°
+        `;
+        layer.bindPopup(popupContent).openPopup();
+      }
     }
-
-    postData("/api/polygons", { name, points: latlngs, flag: 1 })
-      .then((response) => {
-        const newPolygon = response.data.polygon; // Get the new polygon with its ID from the response
-        layer.options.id = newPolygon._id; // Set the polygon's DB ID in the layer options
-        callBack();
-      })
-      .catch((err) => {
-        console.error("Error creating polygon:", err);
-        alert("Failed to create the polygon. Please try again.");
-      });
   });
 
-  // Handle polygon editing
-  map.on(L.Draw.Event.EDITED, function (event: any) {
+  // Handle shape editing (both lines and polygons)
+  //@ts-expect-error the
+  map.on(L.Draw.Event.EDITED, function (event: L.DrawEvents.Edited) {
     const layers = event.layers;
     layers.eachLayer(function (layer: any) {
-      const updatedLatLngs = layer.getLatLngs()[0].map((latlng: L.LatLng) => ({
-        lat: latlng.lat,
-        lng: latlng.lng,
-      }));
-
-      const id = layer.options.id; // Retrieve the DB ID from the layer options
+      const id = layer.options.id;
       if (!id) {
-        console.error("No ID found for the polygon.");
+        console.error("No ID found for the shape.");
         return;
       }
 
-      // Update polygon in the database
-      putData("/api/polygons", { id, points: updatedLatLngs }) // Change to PUT method
-        .then(() => {
-          callBack(); // Refresh or reload polygons
-        })
-        .catch((err) => {
-          console.error("Error updating polygon:", err);
-          alert("Failed to update the polygon. Please try again.");
-        });
+      if (layer instanceof L.Polygon) {
+        const updatedLatLngs = layer
+          .getLatLngs()[0]
+          //@ts-expect-error the
+          .map((latlng: L.LatLng) => ({
+            lat: latlng.lat,
+            lng: latlng.lng,
+          }));
+        putData("/api/polygons", { id, points: updatedLatLngs })
+          .then(() => {
+            getAllPolygons();
+          })
+          .catch((err) => {
+            console.error("Error updating polygon:", err);
+            alert("Failed to update the polygon. Please try again.");
+          });
+      } else if (layer instanceof L.Polyline) {
+        const latlngs = layer.getLatLngs() as L.LatLng[];
+        if (latlngs.length >= 2) {
+          const point1 = latlngs[0];
+          const point2 = latlngs[1];
+          const distance = calculateDistance(point1, point2);
+          const angle = calculateAngle(point1, point2);
+          putData("/api/lines", {
+            id,
+            startPoint: { lat: point1.lat, lng: point1.lng },
+            endPoint: { lat: point2.lat, lng: point2.lng },
+            length: distance,
+            angle,
+          })
+            .then(() => {
+              console.log("Line updated successfully");
+            })
+            .catch((err) => {
+              console.error("Error updating line:", err);
+            });
+        }
+      }
     });
   });
 
-  // Handle polygon deletion
-  map.on(L.Draw.Event.DELETED, function (event: any) {
+  // Handle shape deletion (both lines and polygons)
+  //@ts-expect-error the
+  map.on(L.Draw.Event.DELETED, function (event: L.DrawEvents.Deleted) {
     const layers = event.layers;
     layers.eachLayer(function (layer: any) {
-      const id = layer.options.id; // Retrieve the DB ID from the layer options
+      const id = layer.options.id;
       if (!id) {
-        console.error("No ID found for the polygon.");
+        console.error("No ID found for the shape.");
         return;
       }
 
-      // Delete polygon from the database
-      deleteData("/api/polygons", { id })
-        .then(() => {
-          callBack();
-        })
-        .catch((err) => {
-          console.error("Error deleting polygon:", err);
-          alert("Failed to delete the polygon. Please try again.");
-        });
+      if (layer instanceof L.Polygon) {
+        deleteData("/api/polygons", { id })
+          .then(() => {
+            getAllPolygons();
+          })
+          .catch((err) => {
+            console.error("Error deleting polygon:", err);
+            alert("Failed to delete the polygon. Please try again.");
+          });
+      } else if (layer instanceof L.Polyline) {
+        deleteData("/api/lines", { id })
+          .then(() => {
+            console.log("Line deleted successfully");
+          })
+          .catch((err) => {
+            console.error("Error deleting line:", err);
+          });
+      }
     });
   });
 };
@@ -957,9 +978,8 @@ export const useModal = create<Store>()(
 );
 
 // File: src/store/store.ts
-// File: src/store/store.ts
 import { getData, postData } from "@/services/API";
-import { IPoint, IPolygon, ISettings } from "@/types";
+import { ILine, IPoint, IPolygon, ISettings } from "@/types";
 import { create } from "zustand";
 import L from "leaflet";
 
@@ -967,7 +987,8 @@ interface dataType {
   map: L.Map | null;
   isLoading: boolean;
   points: IPoint[];
-  polygons: IPolygon[]; // New state for polygons
+  polygons: IPolygon[]; // State for polygons
+  lines: ILine[]; // New state for lines
   settings?: ISettings;
   addPointModal: boolean;
   showPointList: boolean;
@@ -977,10 +998,14 @@ interface storeAction {
   setAddPointModal: (value: boolean) => void;
   setShowPointList: (value: boolean) => void;
   setPoints: (points: IPoint[]) => void;
-  setPolygons: (polygons: IPolygon[]) => void; // New setter for polygons
+  setPolygons: (polygons: IPolygon[]) => void; // Setter for polygons
+  setLines: (lines: ILine[]) => void; // New setter for lines
+  addLine: (line: ILine) => void; // New action to add a line
   getSettings: () => void;
   getAllPoints: () => void;
+  refreshAllData: () => void;
   getAllPolygons: () => Promise<IPolygon[]>;
+  getAllLines: () => Promise<ILine[]>; // Fetch all lines
   setIsLoading: (state: (() => boolean) | boolean) => void;
   setMap: (state: (() => L.Map | null) | (L.Map | null)) => void;
 }
@@ -991,12 +1016,13 @@ const initialData: dataType = {
   addPointModal: false,
   points: [],
   polygons: [], // Initialize polygons as an empty array
+  lines: [], // Initialize lines as an empty array
   showPointList: false,
 };
 
 export type storeType = dataType & storeAction;
 
-export const useAppStore = create<storeType>((set) => ({
+export const useAppStore = create<storeType>((set, get) => ({
   ...initialData,
 
   setAddPointModal: (value) => set(() => ({ addPointModal: value })),
@@ -1007,6 +1033,12 @@ export const useAppStore = create<storeType>((set) => ({
 
   // Set the polygons array
   setPolygons: (polygons) => set(() => ({ polygons })),
+
+  // Set the lines array
+  setLines: (lines) => set(() => ({ lines })),
+
+  // Add a new line
+  addLine: (line) => set((state) => ({ lines: [...state.lines, line] })),
 
   // Fetch settings (similar to previous implementation)
   getSettings: () => {
@@ -1024,7 +1056,6 @@ export const useAppStore = create<storeType>((set) => ({
         set({ points: res.data, isLoading: false });
       })
       .catch((error) => {
-        // eslint-disable-next-line no-console
         console.error("Error fetching points:", error);
         set({ isLoading: false });
       });
@@ -1038,26 +1069,19 @@ export const useAppStore = create<storeType>((set) => ({
     return res.data;
   },
 
-  // Toggle the visibility of a polygon (flag update)
-  togglePolygonVisibility: (id: string, currentFlag: number) => {
+  // Fetch all lines
+  getAllLines: async () => {
     set({ isLoading: true });
-    postData("/api/polygons/update-flag", {
-      id,
-      flag: currentFlag === 1 ? 0 : 1,
-    }).then(() => {
-      // Re-fetch polygons after updating visibility
-      getData("/api/polygons", {}).then((res) => {
-        set({ polygons: res.data, isLoading: false });
-      });
-    });
+    const res = await getData("/api/lines", {});
+    set({ lines: res.data, isLoading: false });
+    return res.data;
   },
 
   // Set the loading state
   setIsLoading: (state) => {
     if (typeof state == "boolean") {
       set({ isLoading: state });
-    }
-    if (typeof state == "function") {
+    } else if (typeof state == "function") {
       set({ isLoading: state() });
     }
   },
@@ -1069,6 +1093,12 @@ export const useAppStore = create<storeType>((set) => ({
     } else {
       set({ map: state });
     }
+  },
+  refreshAllData: () => {
+    get().getAllLines();
+    get().getAllPoints();
+    get().getAllPolygons();
+    get().getSettings();
   },
 }));
 
@@ -1106,6 +1136,7 @@ export interface IPoint {
   lat: number;
   lng: number;
   frequency: number;
+  iconType: string;
   status: "active" | "disable";
   date: string;
 }
@@ -1114,6 +1145,13 @@ export interface ISettings {
   lat: number;
   lng: number;
   zoom: number;
+}
+export interface ILine {
+  _id: string;
+  startPoint: { lat: number; lng: number };
+  endPoint: { lat: number; lng: number };
+  length: number;
+  angle: number;
 }
 
 export interface IFormData {
@@ -1188,6 +1226,7 @@ export const pointObject = z.object({
   lat: z.number(),
   lng: z.number(),
   frequency: z.number(),
+  iconType: z.string(),
 });
 export const settingsObject = z.object({
   lat_settings: z.number().min(-90).max(90), // Validation for lat
@@ -1532,7 +1571,7 @@ import { useModal } from "@/store/useModal";
 import { RefreshCw, SearchIcon, Settings, X } from "lucide-react";
 
 export const Toolbar = () => {
-  const { points, getAllPoints, isLoading, setPoints, getAllPolygons } =
+  const { points, getAllPoints, isLoading, setPoints, refreshAllData } =
     useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
 
@@ -1673,8 +1712,7 @@ export const Toolbar = () => {
 
         <button
           onClick={() => {
-            getAllPoints();
-            getAllPolygons();
+            refreshAllData();
           }}
           className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
         >
@@ -1702,7 +1740,7 @@ import { Toolbar } from "./toolbar";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { DownloadModal } from "../modals/downloadModal";
 import { Mark } from "./mark";
-import { DrawPolygon } from "@/helper/drawPolygon";
+import { Draw } from "@/helper/draw";
 import "leaflet.offline";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -1710,19 +1748,18 @@ import L from "leaflet";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet/dist/leaflet.css";
 import { controlSaveTiles } from "@/helper/controlSaveTiles";
-import { DrawLine } from "@/helper/drawLine";
 export default function Map() {
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
   const {
     showPointList,
     points,
-    getAllPoints,
-    getSettings,
     settings,
     isLoading,
     setMap,
     getAllPolygons,
+    getAllLines,
+    refreshAllData,
     map,
   } = useAppStore((state) => state);
   const { setOpen, modal } = useModal((state) => state);
@@ -1737,19 +1774,10 @@ export default function Map() {
     }
     if (once) {
       setOnce(false);
-      getAllPoints();
-      getSettings();
-      getAllPolygons();
+      refreshAllData();
 
       if (map) {
-        DrawPolygon(map, getAllPolygons);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(map);
-
-        // فراخوانی تابع ترسیم خطوط
-        DrawLine(map);
+        Draw(map, getAllPolygons, getAllLines);
         map.on("dblclick", (e: L.LeafletMouseEvent) => {
           const { lat, lng } = e.latlng;
           setOpen(
@@ -1819,7 +1847,7 @@ export default function Map() {
               "absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300"
             }
           >
-            s<span>lat: {pointLabel?.lat}</span>
+            <span>lat: {pointLabel?.lat}</span>
             <span>lng: {pointLabel?.lng}</span>
           </div>
         )}
@@ -1840,21 +1868,34 @@ export default function Map() {
 // File: src/components/map/PointIcon.tsx
 import L from "leaflet";
 
-const PointIcon = new L.Icon({
-  iconUrl: "/assets/icon.png",
-  iconRetinaUrl: "/assets/icon.png",
-  iconAnchor: undefined,
-  shadowUrl: undefined,
-  shadowSize: undefined,
-  shadowAnchor: undefined,
-  iconSize: new L.Point(60, 60),
-  className: "",
-});
-
-export { PointIcon };
+export const getPointIcon = (iconType: string) => {
+  switch (iconType) {
+    case "car":
+      return L.icon({
+        iconUrl: "/assets/car.svg",
+        iconSize: [32, 32],
+      });
+    case "plane":
+      return L.icon({
+        iconUrl: "/assets/plane.svg",
+        iconSize: [32, 32],
+      });
+    case "bus":
+      return L.icon({
+        iconUrl: "/assets/bus.svg",
+        iconSize: [32, 32],
+      });
+    default:
+      return L.icon({
+        iconUrl: "/assets/icon.png",
+        iconSize: [32, 32],
+      });
+  }
+};
 
 // File: src/components/map/mark.tsx
 "use client";
+
 import { EditIcon, Trash2 } from "lucide-react";
 import React from "react";
 import { Marker, Popup, Tooltip } from "react-leaflet";
@@ -1863,7 +1904,7 @@ import { DeletePointModal } from "../modals/deletePointModal";
 import { PointForm } from "../forms/pointForm";
 import { postData } from "@/services/API";
 import { IPoint } from "@/types";
-import { PointIcon } from "./PointIcon";
+import { getPointIcon } from "./PointIcon"; // Adjusted import
 import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
 
@@ -1876,6 +1917,7 @@ export const Mark = ({
 }) => {
   const { getAllPoints } = useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
+
   const changeStatusHandler = (id: string) => {
     postData("/api/points/change-status", { id }).then(() => {
       getAllPoints();
@@ -1884,7 +1926,7 @@ export const Mark = ({
   return (
     <Marker
       key={point._id}
-      icon={PointIcon}
+      icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
       position={[point.lat, point.lng]}
       eventHandlers={{
         mouseover: () => {
@@ -2216,9 +2258,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { pointObject } from "@/validator";
-import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
+import {
+  Button,
+  Input,
+  ModalBody,
+  ModalFooter,
+  Select,
+  SelectItem,
+} from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { useAppStore } from "@/store/store";
+
 export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const { data, setIsLoading, isLoading, setClose } = useModal(
     (state) => state,
@@ -2237,6 +2287,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       lat: data.point?.lat || 0,
       lng: data.point?.lng || 0,
       frequency: data.point?.frequency || 0,
+      iconType: data.point?.iconType || "car", // مقدار پیش‌فرض برای آیکون
     },
   });
 
@@ -2249,7 +2300,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       }).then(() => {
         setIsLoading(false);
         getAllPoints();
-        reset({ name: "", lat: 0, lng: 0, frequency: 0 });
+        reset({ name: "", lat: 0, lng: 0, frequency: 0, iconType: "car" });
         setClose();
       });
     } else {
@@ -2258,11 +2309,12 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
         getAllPoints();
         setIsLoading(false);
 
-        reset({ name: "", lat: 0, lng: 0, frequency: 0 });
+        reset({ name: "", lat: 0, lng: 0, frequency: 0, iconType: "car" });
         setClose();
       });
     }
   };
+
   return (
     <>
       <form
@@ -2309,7 +2361,28 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.frequency ? errors.frequency.message : ""}
             {...register("frequency", { required: true, valueAsNumber: true })}
           />
+
+          {/* Select for Icon Type */}
+          <Select
+            label="Choose Icon"
+            placeholder="Select an icon"
+            isRequired
+            isInvalid={!!errors.iconType}
+            errorMessage={errors.iconType ? errors.iconType.message : ""}
+            {...register("iconType", { required: true })}
+          >
+            <SelectItem key="car" value="car">
+              Car
+            </SelectItem>
+            <SelectItem key="plane" value="plane">
+              Plane
+            </SelectItem>
+            <SelectItem key="bus" value="bus">
+              Bus
+            </SelectItem>
+          </Select>
         </ModalBody>
+
         <ModalFooter>
           <div className="flex w-full justify-center gap-4">
             <Button
@@ -2326,7 +2399,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
               className="bg-green-600 text-white shadow-green-200"
               type="submit"
             >
-              {type === "edit" ? "edit point" : "Add point"}
+              {type === "edit" ? "Edit Point" : "Add Point"}
             </Button>
           </div>
         </ModalFooter>
@@ -2435,98 +2508,4 @@ export const connectDB = async () => {
     throw err; // Ensure error bubbles up
   }
 };
-
-// File: models/PolygonModel.ts
-import mongoose from "mongoose";
-
-const polygonSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  points: [{ lat: Number, lng: Number }], // Array of polygon vertices
-  flag: { type: Number, default: 1 }, // 0 (hide) or 1 (show)
-  isPolygon: { type: Boolean, default: true }, // True for polygons
-  date: { type: Date, default: Date.now },
-  deletedAt: { type: mongoose.Schema.Types.Mixed, default: null },
-});
-const PolygonsModel =
-  mongoose.models.Polygons || mongoose.model("Polygons", polygonSchema);
-
-export default PolygonsModel;
-
-// File: models/LineModel.ts
-// models/LineModel.ts
-import mongoose from "mongoose";
-
-// تعریف اسکیمای خط
-const lineSchema = new mongoose.Schema({
-  startPoint: {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true },
-  },
-  endPoint: {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true },
-  },
-  length: { type: Number, required: true }, // طول خط
-  angle: { type: Number, required: true }, // زاویه خط
-  createdAt: { type: Date, default: Date.now }, // تاریخ ایجاد خط
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // کاربری که خط را ایجاد کرده است (اختیاری)
-  deletedAt: { type: Date, default: null }, // تاریخ حذف (برای حذف نرم)
-});
-
-// ایجاد مدل خط با استفاده از اسکیمای تعریف‌شده
-const LineModel = mongoose.models.Lines || mongoose.model("Lines", lineSchema);
-
-export default LineModel;
-
-// File: models/SettingsModel.ts
-import mongoose from "mongoose";
-
-const schema = new mongoose.Schema({
-  lat: { type: Number, required: true, default: 35.694523130867424 },
-  lng: { type: Number, required: true, default: 51.30922197948697 },
-  zoom: { type: Number, required: true, default: 13 },
-});
-
-const SettingsModel =
-  mongoose.models.SettingsModel || mongoose.model("SettingsModel", schema);
-
-export default SettingsModel;
-
-// File: models/pointsModel.ts
-import mongoose from "mongoose";
-
-const schema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-  },
-  lat: {
-    type: Number,
-    required: true,
-  },
-  lng: {
-    type: Number,
-    required: true,
-  },
-  frequency: {
-    type: Number,
-    required: true,
-  },
-  status: {
-    type: String,
-    default: "active",
-  },
-  date: {
-    type: Date,
-    default: () => Date.now(),
-  },
-  deletedAt: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null,
-  },
-});
-
-const PointsModel = mongoose.models.Points || mongoose.model("Points", schema);
-
-export default PointsModel;
 

@@ -1,38 +1,43 @@
 /* eslint-disable no-console */
 import { deleteData, postData, putData } from "@/services/API";
-import { ILine, IPolygon } from "@/types";
 import L, { LatLng } from "leaflet";
 import { calculateAngle, calculateDistance } from "./math";
+import { useAppStore } from "@/store/store";
 
 // Draw function to handle both lines and polygons
-export const Draw = async (
-  map: L.Map,
-  getAllPolygons: () => Promise<IPolygon[]>,
-  getAllLines: () => Promise<ILine[]>,
-) => {
+export const Draw = async (map: L.Map) => {
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 
   // Load existing polygons from the database
-  getAllPolygons().then((data) => {
-    data.forEach((polygon) => {
+  const drawAllPolygon = async () =>
+    await useAppStore.getState().getAllPolygons();
+  const drawAllLine = async () => await useAppStore.getState().getAllLines();
+  const drawLayers = async () => {
+    const [Polygons, AllLines] = await Promise.all([
+      drawAllPolygon(),
+      drawAllLine(),
+    ]);
+    drawnItems.clearLayers();
+    Polygons.map((polygon) => {
       const layer = L.polygon(
         polygon.points.map((point) => [point.lat, point.lng]),
         { interactive: true },
       );
       //@ts-expect-error the
       layer.options.id = polygon._id; // Store the polygon's DB ID in the layer options
+
+      // drawnItems.removeLayer(polygon._id);
       drawnItems.addLayer(layer);
     });
-  });
-  getAllLines().then((data) => {
-    data.forEach((line) => {
+    AllLines.forEach((line) => {
       const latlngs = [
         [line.startPoint.lat, line.startPoint.lng],
         [line.endPoint.lat, line.endPoint.lng],
       ];
       //@ts-expect-error the
       const layer = L.polyline(latlngs, { interactive: true });
+
       //@ts-expect-error the
       layer.options.id = line._id; // Store the line's DB ID in the layer options
       drawnItems.addLayer(layer);
@@ -44,13 +49,14 @@ export const Draw = async (
       const angle = calculateAngle(line.startPoint, line.endPoint);
 
       const popupContent = `
-        <strong>Line Info</strong><br>
-        Length: ${(distance / 1000).toFixed(2)} km<br>
-        Angle: ${angle.toFixed(2)}°
-      `;
+    <strong>Line Info</strong><br>
+    Length: ${(distance / 1000).toFixed(2)} km<br>
+    Angle: ${angle.toFixed(2)}°
+  `;
       layer.bindPopup(popupContent).openPopup();
     });
-  });
+  };
+  drawLayers();
 
   // Create draw control for both polygons and lines
   const drawControl = new L.Control.Draw({
@@ -85,7 +91,6 @@ export const Draw = async (
   map.on(L.Draw.Event.CREATED, function (event: L.DrawEvents.Created) {
     const layer = event.layer;
     drawnItems.addLayer(layer);
-
     if (event.layerType === "polygon") {
       const latlngs = (layer as L.Polygon).getLatLngs() as L.LatLng[][];
       const flattenedLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
@@ -101,9 +106,10 @@ export const Draw = async (
       postData("/api/polygons", { name, points: latlngsMapped, flag: 1 })
         .then((response) => {
           const newPolygon = response.data.polygon;
+
           //@ts-expect-error the
           layer.options.id = newPolygon._id; // Assign the polygon ID from the response
-          getAllPolygons();
+          drawLayers();
         })
         .catch((err) => {
           console.error("Error creating polygon:", err);
@@ -126,7 +132,7 @@ export const Draw = async (
           .then((response) => {
             //@ts-expect-error the
             layer.options.id = response.data.line._id; // Assign the line ID from the response
-            console.log("Line saved successfully");
+            drawLayers();
           })
           .catch((err) => {
             console.error("Error saving line:", err);
@@ -163,7 +169,7 @@ export const Draw = async (
           }));
         putData("/api/polygons", { id, points: updatedLatLngs })
           .then(() => {
-            getAllPolygons();
+            drawLayers();
           })
           .catch((err) => {
             console.error("Error updating polygon:", err);
@@ -184,7 +190,7 @@ export const Draw = async (
             angle,
           })
             .then(() => {
-              console.log("Line updated successfully");
+              drawLayers();
             })
             .catch((err) => {
               console.error("Error updating line:", err);
@@ -208,7 +214,7 @@ export const Draw = async (
       if (layer instanceof L.Polygon) {
         deleteData("/api/polygons", { id })
           .then(() => {
-            getAllPolygons();
+            drawLayers();
           })
           .catch((err) => {
             console.error("Error deleting polygon:", err);
@@ -217,7 +223,7 @@ export const Draw = async (
       } else if (layer instanceof L.Polyline) {
         deleteData("/api/lines", { id })
           .then(() => {
-            console.log("Line deleted successfully");
+            drawLayers();
           })
           .catch((err) => {
             console.error("Error deleting line:", err);

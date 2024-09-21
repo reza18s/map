@@ -15,11 +15,25 @@ import { SettingsForm } from "../forms/settingsForm";
 import { useForm } from "react-hook-form";
 import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
-import { RefreshCw, SearchIcon, Settings, X } from "lucide-react";
+import {
+  RedoIcon,
+  RefreshCw,
+  SearchIcon,
+  Settings,
+  UndoIcon,
+  X,
+} from "lucide-react";
 
 export const Toolbar = () => {
-  const { points, getAllPoints, isLoading, setPoints, refreshAllData } =
-    useAppStore((state) => state);
+  const {
+    points,
+    getAllPoints,
+    isLoading,
+    setPoints,
+    refreshAllData,
+    undo,
+    redo,
+  } = useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
 
   const { register, setValue, watch } = useForm({
@@ -72,6 +86,15 @@ export const Toolbar = () => {
 
   return (
     <div className="flex w-full items-center justify-between px-4 pb-1">
+      <div className="toolbar-buttons">
+        {/* Other buttons */}
+        <button onClick={undo}>
+          <UndoIcon /> Undo
+        </button>
+        <button onClick={redo}>
+          <RedoIcon /> Redo
+        </button>
+      </div>
       <div className="flex justify-center gap-16">
         <Input
           isRequired

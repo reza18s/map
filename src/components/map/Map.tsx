@@ -31,8 +31,6 @@ export default function Map() {
     settings,
     isLoading,
     setMap,
-    getAllPolygons,
-    getAllLines,
     refreshAllData,
     map,
   } = useAppStore((state) => state);
@@ -51,7 +49,7 @@ export default function Map() {
       refreshAllData();
 
       if (map) {
-        Draw(map, getAllPolygons, getAllLines);
+        Draw(map);
         map.on("dblclick", (e: L.LeafletMouseEvent) => {
           const { lat, lng } = e.latlng;
           setOpen(
@@ -121,7 +119,7 @@ export default function Map() {
               "absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300"
             }
           >
-            s<span>lat: {pointLabel?.lat}</span>
+            <span>lat: {pointLabel?.lat}</span>
             <span>lng: {pointLabel?.lng}</span>
           </div>
         )}
