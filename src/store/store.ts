@@ -168,11 +168,13 @@ export const useAppStore = create<storeType>((set, get) => ({
     if (lastAction.polygon) {
       item = lastAction.polygon;
     } else {
+      // @ts-expect-error the
       item = lastAction.line!;
     }
 
     const layer = drawnItems
       .getLayers()
+      // @ts-expect-error the
       .findLast((layer) => layer.options.id == item._id);
     if (!layer) {
       return;
@@ -224,6 +226,7 @@ export const useAppStore = create<storeType>((set, get) => ({
     if (nextAction.polygon) {
       item = nextAction.polygon;
     } else {
+      // @ts-expect-error the
       item = nextAction.line!;
     }
     const updatedFuture = future.slice(1);
