@@ -1,8 +1,16 @@
-import { getData, postData } from "@/services/API";
+import { deleteData, getData, postData, putData } from "@/services/API";
 import { ILine, IPoint, IPolygon, ISettings } from "@/types";
 import { create } from "zustand";
-import L from "leaflet";
-
+import L, { polygon } from "leaflet";
+interface IHistory {
+  actionType: "create" | "delete" | "update";
+  type: "polygon" | "polyline";
+  polygon?: IPolygon;
+  line?: ILine;
+}
+interface IFuture extends IHistory {
+  layer: L.Layer;
+}
 interface dataType {
   map: L.Map | null;
   isLoading: boolean;
@@ -12,11 +20,13 @@ interface dataType {
   settings?: ISettings;
   addPointModal: boolean;
   showPointList: boolean;
-  history: any[]; // Array to track history for undo
-  future: any[]; // Array to track future for redo
+  drawnItems?: L.FeatureGroup<any>;
+  history: IHistory[]; // Array to track history for undo
+  future: IFuture[]; // Array to track future for redo
 }
 
 interface storeAction {
+  setDrawnItems: (drawnItems: L.FeatureGroup<any>) => void;
   setAddPointModal: (value: boolean) => void;
   setShowPointList: (value: boolean) => void;
   setPoints: (points: IPoint[]) => void;
@@ -30,7 +40,17 @@ interface storeAction {
   getAllLines: () => Promise<ILine[]>;
   setIsLoading: (state: (() => boolean) | boolean) => void;
   setMap: (state: (() => L.Map | null) | (L.Map | null)) => void;
-  pushToHistory: (actionType: string, data: any) => void;
+  pushToHistory: ({
+    actionType,
+    type,
+    line,
+    polygon,
+  }: {
+    actionType: "create" | "delete" | "update";
+    type: "polygon" | "polyline";
+    polygon?: IPolygon;
+    line?: ILine;
+  }) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -118,66 +138,130 @@ export const useAppStore = create<storeType>((set, get) => ({
   },
 
   // Push state to history and reset future (for new actions)
-  pushToHistory: (actionType: string, data: any) => {
+  pushToHistory: ({ actionType, type, line, polygon }) => {
+    console.log("addToHistory");
     const { history } = get();
     set({
-      history: [...history, { actionType, data }],
-      future: [], // Reset future state when new action is performed
+      history: [...history, { actionType, type, line, polygon }],
+      future: [],
     });
   },
 
   // Undo: Revert the last action and store it in future
   undo: () => {
-    console.log("fuck");
-    const { history, future, setPolygons, setLines } = get();
-    if (history.length === 0) {
+    const {
+      history,
+      future,
+      drawnItems,
+      getAllLines,
+      getAllPolygons,
+      setIsLoading,
+    } = get();
+    if (history.length === 0 || !drawnItems) {
       return;
     }
+    console.log(history);
 
     const lastAction = history[history.length - 1];
+
+    let item: IPolygon | IPoint;
+    if (lastAction.polygon) {
+      item = lastAction.polygon;
+    } else {
+      item = lastAction.line!;
+    }
+
+    const layer = drawnItems
+      .getLayers()
+      .findLast((layer) => layer.options.id == item._id);
+    if (!layer) {
+      return;
+    }
     const updatedHistory = history.slice(0, -1);
-    set({ history: updatedHistory, future: [lastAction, ...future] });
+    set({
+      history: updatedHistory,
+      future: [{ ...lastAction, layer }, ...future],
+    });
 
     switch (lastAction.actionType) {
-      case "addPolygon":
-        setPolygons(lastAction.data.previousPolygons);
+      case "create":
+        console.log("fuck");
+        drawnItems.removeLayer(layer);
+        if (lastAction.type == "polygon") {
+          deleteData("/api/polygons", { id: item._id }).then(() => {
+            getAllPolygons();
+            setIsLoading(false);
+          });
+        } else if (lastAction.type == "polyline") {
+          deleteData("/api/lines", { id: item._id }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+
         break;
-      case "addLine":
-        setLines(lastAction.data.previousLines);
-        break;
-      case "deletePolygon":
-        setPolygons(lastAction.data.previousPolygons);
-        break;
-      case "deleteLine":
-        setLines(lastAction.data.previousLines);
-        break;
+      case "delete":
+      case "update":
     }
   },
 
   // Redo: Reapply the last undone action
   redo: () => {
-    const { future, history, setPolygons, setLines } = get();
-    if (future.length === 0) {
+    const {
+      future,
+      history,
+      drawnItems,
+      getAllPolygons,
+      getAllLines,
+      setIsLoading,
+    } = get();
+    if (future.length === 0 || !drawnItems) {
       return;
     }
 
     const nextAction = future[0];
+    let item: IPolygon | IPoint;
+    if (nextAction.polygon) {
+      item = nextAction.polygon;
+    } else {
+      item = nextAction.line!;
+    }
     const updatedFuture = future.slice(1);
-    set({ future: updatedFuture, history: [...history, nextAction] });
+    set({
+      future: updatedFuture,
+      history: [
+        ...history,
+        {
+          type: nextAction.type,
+          actionType: nextAction.actionType,
+          line: nextAction.line,
+          polygon: nextAction.polygon,
+        },
+      ],
+    });
 
     switch (nextAction.actionType) {
-      case "addPolygon":
-        setPolygons(nextAction.data.newPolygons);
+      case "create":
+        drawnItems.addLayer(nextAction.layer);
+        if (nextAction.type == "polygon") {
+          putData("/api/polygons", { id: item._id, deletedAt: null }).then(
+            () => {
+              getAllPolygons();
+              setIsLoading(false);
+            },
+          );
+        } else if (nextAction.type == "polyline") {
+          putData("/api/lines", { id: item._id, deletedAt: null }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
         break;
-      case "addLine":
-        setLines(nextAction.data.newLines);
-        break;
-      case "deletePolygon":
-        setPolygons(nextAction.data.newPolygons);
-        break;
-      case "deleteLine":
-        setLines(nextAction.data.newLines);
-        break;
+      case "delete":
+      case "update":
     }
+  },
+  setDrawnItems: (drawnItems) => {
+    set({ drawnItems });
   },
 }));

@@ -51,11 +51,11 @@ export async function PUT(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { id, name, points, flag } = body;
+    const { id, name, points, flag, deletedAt } = body;
 
     await PolygonsModel.findOneAndUpdate(
       { _id: id },
-      { $set: { name, points, flag } },
+      { $set: { name, points, flag, deletedAt } },
     );
 
     return NextResponse.json({ message: "Polygon updated!" });

@@ -77,7 +77,7 @@ export async function PUT(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { id, startPoint, endPoint, length, angle } = body;
+    const { id, startPoint, endPoint, length, angle, deletedAt } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -88,7 +88,7 @@ export async function PUT(req: Request) {
 
     const updatedLine = await LineModel.findOneAndUpdate(
       { _id: id, deletedAt: null }, // Ensure that the line exists and hasn't been soft-deleted
-      { $set: { startPoint, endPoint, length, angle } },
+      { $set: { startPoint, endPoint, length, angle, deletedAt } },
       { new: true }, // Return the updated document
     );
 

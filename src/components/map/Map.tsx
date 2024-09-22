@@ -36,7 +36,6 @@ export default function Map() {
   } = useAppStore((state) => state);
   const { setOpen, modal } = useModal((state) => state);
   const [pointLabel, setPointLabel] = useState<Partial<IPoint>>({});
-
   const [once, setOnce] = useState(true);
 
   // Fetch all points

@@ -8,6 +8,7 @@ import { useAppStore } from "@/store/store";
 export const Draw = async (map: L.Map) => {
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
+  useAppStore.getState().setDrawnItems(drawnItems);
 
   // Load existing polygons from the database
   const drawAllPolygon = async () =>
@@ -55,6 +56,7 @@ export const Draw = async (map: L.Map) => {
   `;
       layer.bindPopup(popupContent).openPopup();
     });
+    useAppStore.getState().setDrawnItems(drawnItems);
   };
   drawLayers();
 
@@ -106,9 +108,14 @@ export const Draw = async (map: L.Map) => {
       postData("/api/polygons", { name, points: latlngsMapped, flag: 1 })
         .then((response) => {
           const newPolygon = response.data.polygon;
-
+          useAppStore.getState().pushToHistory({
+            actionType: "create",
+            type: "polygon",
+            polygon: newPolygon,
+          });
           //@ts-expect-error the
           layer.options.id = newPolygon._id; // Assign the polygon ID from the response
+          drawnItems.removeLayer(layer);
           drawLayers();
         })
         .catch((err) => {
@@ -122,7 +129,6 @@ export const Draw = async (map: L.Map) => {
         const point2 = latlngs[1];
         const distance = calculateDistance(point1, point2);
         const angle = calculateAngle(point1, point2);
-
         postData("/api/lines", {
           startPoint: { lat: point1.lat, lng: point1.lng },
           endPoint: { lat: point2.lat, lng: point2.lng },
@@ -130,8 +136,15 @@ export const Draw = async (map: L.Map) => {
           angle,
         })
           .then((response) => {
+            console.log("create");
+            useAppStore.getState().pushToHistory({
+              actionType: "create",
+              type: "polyline",
+              line: response.data.line,
+            });
             //@ts-expect-error the
             layer.options.id = response.data.line._id; // Assign the line ID from the response
+            drawnItems.removeLayer(layer);
             drawLayers();
           })
           .catch((err) => {
@@ -169,6 +182,7 @@ export const Draw = async (map: L.Map) => {
           }));
         putData("/api/polygons", { id, points: updatedLatLngs })
           .then(() => {
+            drawnItems.removeLayer(layer);
             drawLayers();
           })
           .catch((err) => {
@@ -190,6 +204,7 @@ export const Draw = async (map: L.Map) => {
             angle,
           })
             .then(() => {
+              drawnItems.removeLayer(layer);
               drawLayers();
             })
             .catch((err) => {
