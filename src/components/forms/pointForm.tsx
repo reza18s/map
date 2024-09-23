@@ -35,6 +35,10 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       lng: data.point?.lng || 0,
       frequency: data.point?.frequency || 0,
       iconType: data.point?.iconType || "car", // مقدار پیش‌فرض برای آیکون
+      dFrequency: data.point?.frequency || 0,
+      dAzimuth: data.point?.dAzimuth || 0,
+      dLevel: data.point?.dLevel || 0,
+      dQuality: data.point?.dQuality || 0,
     },
   });
 
@@ -47,7 +51,17 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       }).then(() => {
         setIsLoading(false);
         getAllPoints();
-        reset({ name: "", lat: 0, lng: 0, frequency: 0, iconType: "car" });
+        reset({
+          name: "",
+          lat: 0,
+          lng: 0,
+          frequency: 0,
+          iconType: "car",
+          dFrequency: 0,
+          dAzimuth: 0,
+          dLevel: 0,
+          dQuality: 0,
+        });
         setClose();
       });
     } else {
@@ -56,7 +70,17 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
         getAllPoints();
         setIsLoading(false);
 
-        reset({ name: "", lat: 0, lng: 0, frequency: 0, iconType: "car" });
+        reset({
+          name: "",
+          lat: 0,
+          lng: 0,
+          frequency: 0,
+          iconType: "car",
+          dFrequency: 0,
+          dAzimuth: 0,
+          dLevel: 0,
+          dQuality: 0,
+        });
         setClose();
       });
     }
@@ -78,7 +102,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.name ? errors.name.message : ""}
             {...register("name", { required: true })}
           />
-
           <Input
             isRequired
             label="Lat"
@@ -88,7 +111,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.lat ? errors.lat.message : ""}
             {...register("lat", { required: true, valueAsNumber: true })}
           />
-
           <Input
             isRequired
             label="Lng"
@@ -98,7 +120,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.lng ? errors.lng.message : ""}
             {...register("lng", { required: true, valueAsNumber: true })}
           />
-
           <Input
             isRequired
             label="Frequency"
@@ -108,7 +129,42 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.frequency ? errors.frequency.message : ""}
             {...register("frequency", { required: true, valueAsNumber: true })}
           />
-
+          <Input
+            isRequired
+            label="DFrequency"
+            labelPlacement="outside"
+            placeholder="Enter point dFrequency"
+            isInvalid={!!errors.dFrequency}
+            errorMessage={errors.dFrequency ? errors.dFrequency.message : ""}
+            {...register("dFrequency", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="DAzimuth"
+            labelPlacement="outside"
+            placeholder="Enter point DAzimuth"
+            isInvalid={!!errors.dAzimuth}
+            errorMessage={errors.dAzimuth ? errors.dAzimuth.message : ""}
+            {...register("dAzimuth", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="DLevel"
+            labelPlacement="outside"
+            placeholder="Enter point dLevel"
+            isInvalid={!!errors.dLevel}
+            errorMessage={errors.dLevel ? errors.dLevel.message : ""}
+            {...register("dLevel", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="DQuality"
+            labelPlacement="outside"
+            placeholder="Enter point dQuality"
+            isInvalid={!!errors.dQuality}
+            errorMessage={errors.dQuality ? errors.dQuality.message : ""}
+            {...register("dQuality", { required: true, valueAsNumber: true })}
+          />
           {/* Select for Icon Type */}
           <Select
             label="Choose Icon"

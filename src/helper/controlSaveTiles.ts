@@ -20,8 +20,11 @@ export const controlSaveTiles = ({
       maxZoom: 16,
     },
   );
-  tileLayerOffline.addTo(map);
+  if (tileLayerOffline.addTo) {
+    tileLayerOffline.addTo(map);
+  }
   const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
+    position: "topright",
     zoomlevels: [11, 12, 13, 14, 15, 16],
     confirm(layer: any, succescallback: () => void) {
       if (
@@ -70,7 +73,7 @@ export const controlSaveTiles = ({
       </svg>
     </div>`,
   });
-  if (controlSaveTiles) {
+  if (controlSaveTiles.addTo) {
     controlSaveTiles.addTo(map);
   }
 

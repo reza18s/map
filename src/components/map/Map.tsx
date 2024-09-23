@@ -16,11 +16,8 @@ import { DownloadModal } from "../modals/downloadModal";
 import { Mark } from "./mark";
 import { Draw } from "@/helper/draw";
 import "leaflet.offline";
-import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
 import L from "leaflet";
-import "leaflet-draw/dist/leaflet.draw.css";
-import "leaflet/dist/leaflet.css";
 import { controlSaveTiles } from "@/helper/controlSaveTiles";
 export default function Map() {
   const [progress, setProgress] = useState(0);
@@ -48,6 +45,10 @@ export default function Map() {
       refreshAllData();
 
       if (map) {
+        new L.Control.Zoom({
+          position: "topright",
+        }).addTo(map);
+
         Draw(map);
         map.on("dblclick", (e: L.LeafletMouseEvent) => {
           const { lat, lng } = e.latlng;
@@ -83,6 +84,7 @@ export default function Map() {
           }
           zoom={settings?.zoom ? settings?.zoom : 13}
           scrollWheelZoom={true}
+          zoomControl={false}
           doubleClickZoom={false}
           ref={setMap}
         >

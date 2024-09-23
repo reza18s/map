@@ -62,6 +62,7 @@ export const Draw = async (map: L.Map) => {
 
   // Create draw control for both polygons and lines
   const drawControl = new L.Control.Draw({
+    position: "topright",
     draw: {
       polygon: {
         allowIntersection: false,

@@ -8,6 +8,10 @@ export const pointObject = z.object({
   lng: z.number(),
   frequency: z.number(),
   iconType: z.string(),
+  dFrequency: z.number(),
+  dAzimuth: z.number(),
+  dLevel: z.number(),
+  dQuality: z.number(),
 });
 export const settingsObject = z.object({
   lat_settings: z.number().min(-90).max(90), // Validation for lat

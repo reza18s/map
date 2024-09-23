@@ -9,6 +9,10 @@ export interface IPoint {
   iconType: string;
   status: "active" | "disable";
   date: string;
+  dFrequency: number;
+  dAzimuth: number;
+  dLevel: number;
+  dQuality: number;
 }
 
 export interface ISettings {

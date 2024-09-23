@@ -6,7 +6,19 @@ export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { lat, lng, date, deletedAt, name, frequency, iconType } = body;
+    const {
+      lat,
+      lng,
+      date,
+      deletedAt,
+      name,
+      frequency,
+      iconType,
+      dFrequency,
+      dAzimuth,
+      dLevel,
+      dQuality,
+    } = body;
 
     const points = await PointsModel.create({
       lat,
@@ -16,6 +28,10 @@ export async function POST(req: Request) {
       iconType,
       frequency,
       deletedAt,
+      dFrequency,
+      dAzimuth,
+      dLevel,
+      dQuality,
     });
     return NextResponse.json(
       { message: "Point created successfully!", points },
@@ -39,11 +55,36 @@ export async function PUT(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { lat, lng, id, name, point, frequency, iconType } = body;
+    const {
+      lat,
+      lng,
+      id,
+      name,
+      point,
+      frequency,
+      iconType,
+      dFrequency,
+      dAzimuth,
+      dLevel,
+      dQuality,
+    } = body;
 
     await PointsModel.findOneAndUpdate(
       { _id: id },
-      { $set: { lat, lng, name, point, frequency, iconType } },
+      {
+        $set: {
+          lat,
+          lng,
+          name,
+          point,
+          frequency,
+          iconType,
+          dFrequency,
+          dAzimuth,
+          dLevel,
+          dQuality,
+        },
+      },
     );
 
     return NextResponse.json({ message: "Polygon updated!" });

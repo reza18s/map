@@ -35,6 +35,7 @@ const baseLayer = L.tileLayer
 
 // Set up tile saving controls
 const control = L.control.savetiles(baseLayer, {
+  position: "topright",
   zoomlevels: [13, 16],
   confirm: (layer: any, successCallback: () => void): void => {
     if (window.confirm(`Save ${layer._tilesforSave.length}`)) {

@@ -9,7 +9,7 @@ const Sidebar = dynamic(() => import("@/components/sidebar/Sidebar"), {
 
 export default function Home() {
   return (
-    <div className="flex h-screen w-full items-center">
+    <div className="flex h-dvh w-full items-center">
       <Sidebar />
       <Map />
     </div>

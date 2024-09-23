@@ -17,7 +17,36 @@
 .spinner-anim {
   animation: spinner 1s infinite;
 }
-
-.leaflet-right {
-  display: none;
+.leaflet-top {
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row-reverse; /* Arrange the buttons in a row (horizontal) */
+  box-shadow: none;
+}
+.leaflet-control-zoom {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-section {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-toolbar {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-toolbar {
+  margin-top: 0px;
+}
+.savetiles {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
 }

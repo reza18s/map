@@ -5,7 +5,7 @@ import { useModal } from "@/store/useModal";
 import { Modals } from "../modals";
 import { PointForm } from "../forms/pointForm";
 import { useAppStore } from "@/store/store";
-import { Eye, EyeOff, Menu } from "lucide-react";
+import { Compass, Eye, EyeOff, Menu } from "lucide-react";
 import { Accordion, AccordionItem } from "@nextui-org/react";
 
 export default function Sidebar() {
@@ -16,10 +16,10 @@ export default function Sidebar() {
   );
   return (
     <div
-      className={`${openSidebar ? "min-w-60" : "min-w-16"} relative  transition-all duration-300`}
+      className={`${openSidebar ? "min-w-96" : "min-w-16"} relative  transition-all duration-300`}
     >
       <div
-        className={`${openSidebar ? "min-w-60 p-5" : "min-w-16 p-2"} fixed bottom-0 flex h-full flex-col justify-between  gap-4 bg-indigo-100 pt-3 transition-all duration-300`}
+        className={`${openSidebar ? "min-w-96 p-5" : "min-w-16 p-2"} fixed bottom-0 flex h-full flex-col justify-between  gap-4 bg-indigo-100 pt-3 transition-all duration-300`}
       >
         <div>
           <div
@@ -41,14 +41,47 @@ export default function Sidebar() {
               <Menu></Menu>
             </button>
           </div>
-          <div className="my-5">
+          <div className={`${openSidebar ? "" : "hidden"} my-5`}>
             <Accordion variant="splitted">
               {points.map((point) => (
                 <AccordionItem
                   key={point._id}
                   aria-label={point.name}
-                  title={point.name}
-                ></AccordionItem>
+                  title={
+                    <div className="flex flex-row ">
+                      <Image
+                        src={`/public/assets/${point.iconType}.svg`}
+                        alt={point.name}
+                        width={20}
+                        height={20}
+                      ></Image>
+                      <div className="ml-2 text-xl font-medium">
+                        {point.name}
+                      </div>
+                    </div>
+                  }
+                >
+                  <div className=" -mt-3 flex  w-full flex-col text-lg">
+                    <div className=" border-b-1 pl-2">Lat: {point.lat}</div>
+                    <div className="border-b-1 pl-2 pt-2">Lng: {point.lng}</div>
+                    <div className="border-b-1 pl-2 pt-2">
+                      Status:{" "}
+                      {point.status == "active" ? (
+                        <span className="text-green-600 ">{point.status}</span>
+                      ) : (
+                        <span className="text-rose-600">{point.status}</span>
+                      )}
+                    </div>
+                    <div className="border-b-1 pl-2 pt-2">
+                      Frequency: {point.frequency}
+                    </div>
+                    <div className="pl-2 pt-2">
+                      <div className="flex flex-row">
+                        Degree: <Compass className="ml-2 rotate-45"></Compass>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionItem>
               ))}
             </Accordion>
           </div>
