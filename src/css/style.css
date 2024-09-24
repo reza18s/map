@@ -50,3 +50,6 @@
   display: flex; /* Use flexbox to arrange the buttons horizontally */
   flex-direction: row; /* Arrange the buttons in a row (horizontal) */
 }
+.leaflet-draw-actions {
+  margin-top: 35px;
+}
