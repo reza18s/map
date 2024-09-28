@@ -102,7 +102,7 @@ export default function Map() {
                 {points.length > 0 &&
                   points.map(
                     (point) =>
-                      point.status === "active" && (
+                      point.status && (
                         <Mark
                           key={point._id}
                           point={point}

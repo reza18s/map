@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const point = await PointsModel.findOne({ _id: id });
     await PointsModel.findOneAndUpdate(
       { _id: id },
-      { $set: { status: point?.status === "active" ? "disable" : "active" } },
+      { $set: { status: !point?.status } },
     );
 
     return NextResponse.json({ message: "Point status updated!" });

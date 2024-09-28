@@ -14,7 +14,7 @@ import { PointAction } from "../global/pointAction";
 import { IPoint } from "@/types";
 import { useAppStore } from "@/store/store";
 import { postData } from "@/services/API";
-const statusColorMap: { [key: string]: "success" | "danger" } = {
+export const statusColorMap: { [key: string]: "success" | "danger" } = {
   active: "success",
   disable: "danger",
 };
@@ -61,11 +61,11 @@ export const Tables = () => {
           <button onClick={() => changeStatusHandler(point._id)}>
             <Chip
               className="capitalize"
-              color={statusColorMap[point.status]}
+              color={statusColorMap[point.status ? "active" : "disable"]}
               size="sm"
               variant="flat"
             >
-              {statusLoading ? "wait..." : point.status}
+              {statusLoading ? "wait..." : point.status ? "active" : "disable"}
             </Chip>
           </button>
         );

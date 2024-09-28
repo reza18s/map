@@ -7,12 +7,11 @@ export interface IPoint {
   lng: number;
   frequency: number;
   iconType: string;
-  status: "active" | "disable";
   date: string;
-  dFrequency: number;
-  dAzimuth: number;
-  dLevel: number;
-  dQuality: number;
+  active: boolean;
+  status: boolean;
+  connect: boolean;
+  level: number;
 }
 
 export interface ISettings {

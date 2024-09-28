@@ -14,10 +14,10 @@ export async function POST(req: Request) {
       name,
       frequency,
       iconType,
-      dFrequency,
-      dAzimuth,
-      dLevel,
-      dQuality,
+      active,
+      connect,
+      status,
+      level,
     } = body;
 
     const points = await PointsModel.create({
@@ -28,10 +28,10 @@ export async function POST(req: Request) {
       iconType,
       frequency,
       deletedAt,
-      dFrequency,
-      dAzimuth,
-      dLevel,
-      dQuality,
+      active,
+      connect,
+      status,
+      level,
     });
     return NextResponse.json(
       { message: "Point created successfully!", points },
@@ -63,10 +63,10 @@ export async function PUT(req: Request) {
       point,
       frequency,
       iconType,
-      dFrequency,
-      dAzimuth,
-      dLevel,
-      dQuality,
+      active,
+      connect,
+      status,
+      level,
     } = body;
 
     await PointsModel.findOneAndUpdate(
@@ -79,10 +79,10 @@ export async function PUT(req: Request) {
           point,
           frequency,
           iconType,
-          dFrequency,
-          dAzimuth,
-          dLevel,
-          dQuality,
+          active,
+          connect,
+          status,
+          level,
         },
       },
     );

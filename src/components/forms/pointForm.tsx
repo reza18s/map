@@ -12,9 +12,12 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Switch,
 } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { useAppStore } from "@/store/store";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
 
 export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const { data, setIsLoading, isLoading, setClose } = useModal(
@@ -35,10 +38,10 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       lng: data.point?.lng || 0,
       frequency: data.point?.frequency || 0,
       iconType: data.point?.iconType || "car", // مقدار پیش‌فرض برای آیکون
-      dFrequency: data.point?.frequency || 0,
-      dAzimuth: data.point?.dAzimuth || 0,
-      dLevel: data.point?.dLevel || 0,
-      dQuality: data.point?.dQuality || 0,
+      active: data.point?.active || false,
+      connect: data.point?.connect || false,
+      status: data.point?.status || false,
+      level: data.point?.level || 0,
     },
   });
 
@@ -57,10 +60,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           lng: 0,
           frequency: 0,
           iconType: "car",
-          dFrequency: 0,
-          dAzimuth: 0,
-          dLevel: 0,
-          dQuality: 0,
         });
         setClose();
       });
@@ -76,10 +75,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           lng: 0,
           frequency: 0,
           iconType: "car",
-          dFrequency: 0,
-          dAzimuth: 0,
-          dLevel: 0,
-          dQuality: 0,
         });
         setClose();
       });
@@ -96,6 +91,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           <Input
             isRequired
             label="Name"
+            className="text-lg font-semibold"
             labelPlacement="outside"
             placeholder="Enter point name"
             isInvalid={!!errors.name}
@@ -105,6 +101,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           <Input
             isRequired
             label="Lat"
+            className="text-lg font-semibold"
             labelPlacement="outside"
             placeholder="Enter point lat"
             isInvalid={!!errors.lat}
@@ -114,6 +111,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           <Input
             isRequired
             label="Lng"
+            className="text-lg font-semibold"
             labelPlacement="outside"
             placeholder="Enter point lng"
             isInvalid={!!errors.lng}
@@ -123,6 +121,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           <Input
             isRequired
             label="Frequency"
+            className="text-lg font-semibold"
             labelPlacement="outside"
             placeholder="Enter point frequency"
             isInvalid={!!errors.frequency}
@@ -131,44 +130,20 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           />
           <Input
             isRequired
-            label="DFrequency"
+            label="Level"
             labelPlacement="outside"
-            placeholder="Enter point dFrequency"
-            isInvalid={!!errors.dFrequency}
-            errorMessage={errors.dFrequency ? errors.dFrequency.message : ""}
-            {...register("dFrequency", { required: true, valueAsNumber: true })}
+            className="text-lg font-semibold"
+            placeholder="Enter point Level"
+            isInvalid={!!errors.level}
+            errorMessage={errors.level ? errors.level.message : ""}
+            {...register("level", { required: true })}
           />
-          <Input
-            isRequired
-            label="DAzimuth"
-            labelPlacement="outside"
-            placeholder="Enter point DAzimuth"
-            isInvalid={!!errors.dAzimuth}
-            errorMessage={errors.dAzimuth ? errors.dAzimuth.message : ""}
-            {...register("dAzimuth", { required: true, valueAsNumber: true })}
-          />
-          <Input
-            isRequired
-            label="DLevel"
-            labelPlacement="outside"
-            placeholder="Enter point dLevel"
-            isInvalid={!!errors.dLevel}
-            errorMessage={errors.dLevel ? errors.dLevel.message : ""}
-            {...register("dLevel", { required: true, valueAsNumber: true })}
-          />
-          <Input
-            isRequired
-            label="DQuality"
-            labelPlacement="outside"
-            placeholder="Enter point dQuality"
-            isInvalid={!!errors.dQuality}
-            errorMessage={errors.dQuality ? errors.dQuality.message : ""}
-            {...register("dQuality", { required: true, valueAsNumber: true })}
-          />
+
           {/* Select for Icon Type */}
           <Select
             label="Choose Icon"
             placeholder="Select an icon"
+            className="text-lg font-semibold "
             isRequired
             isInvalid={!!errors.iconType}
             errorMessage={errors.iconType ? errors.iconType.message : ""}
@@ -183,7 +158,44 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             <SelectItem key="bus" value="bus">
               Bus
             </SelectItem>
+            <SelectItem key="human" value="human">
+              human
+            </SelectItem>
+            <SelectItem key="helicopter" value="helicopter">
+              helicopter
+            </SelectItem>
+            <SelectItem key="train" value="train">
+              train
+            </SelectItem>
           </Select>
+          <div className="flex items-center  gap-2">
+            <Label htmlFor="status" className="text-sm font-semibold">
+              status:
+            </Label>
+            <Switch
+              id="status"
+              {...register("status", { required: true })}
+            ></Switch>
+          </div>
+
+          <div className="flex items-center  gap-2">
+            <Label htmlFor="active" className="text-sm font-semibold">
+              active:
+            </Label>
+            <Switch
+              id="active"
+              {...register("active", { required: true })}
+            ></Switch>
+          </div>
+          <div className="flex items-center  gap-2">
+            <Label htmlFor="connect" className="text-sm font-semibold">
+              connect:
+            </Label>
+            <Switch
+              id="connect"
+              {...register("connect", { required: true })}
+            ></Switch>
+          </div>
         </ModalBody>
 
         <ModalFooter>
