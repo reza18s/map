@@ -1,0 +1,3270 @@
+// File: src/app/providers.tsx
+"use client";
+import { NextUIProvider } from "@nextui-org/react";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <NextUIProvider>{children}</NextUIProvider>;
+}
+
+// File: src/app/layout.tsx
+import { Providers } from "./providers";
+import { connectDB } from "@/configs/db";
+
+import "leaflet/dist/leaflet.css";
+import "leaflet-draw/dist/leaflet.draw.css";
+import "leaflet/dist/leaflet.css";
+import "./globals.css";
+import "../css/style.css";
+export const metadata = {
+  title: "Map",
+  description: "Map Selector by shahyad karimi",
+};
+
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  await connectDB();
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+
+// File: src/app/api/polygons/update-flag/route.ts
+import { connectDB } from "@/configs/db";
+import PolygonsModel from "@/models/PolygonModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id, flag } = body;
+
+    // Update polygon flag based on provided id and flag
+    await PolygonsModel.findOneAndUpdate({ _id: id }, { $set: { flag } });
+
+    return NextResponse.json({ message: "Flag updated!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// File: src/app/api/polygons/route.ts
+import { connectDB } from "@/configs/db";
+import PolygonsModel from "@/models/PolygonModel";
+import { NextResponse } from "next/server";
+
+// Create a new polygon
+export async function POST(req: Request) {
+  try {
+    await connectDB(); // Ensure DB connection is successful
+    const body = await req.json();
+    const { name, points, flag } = body;
+
+    if (!name || !points || flag === undefined) {
+      throw new Error("Missing required fields");
+    }
+
+    const polygon = await PolygonsModel.create({
+      name,
+      points,
+      flag,
+      isPolygon: true,
+    });
+
+    return NextResponse.json({
+      message: "Polygon created successfully!",
+      polygon,
+    });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// Get polygons (without deleted ones)
+export async function GET() {
+  try {
+    await connectDB();
+    const polygons = await PolygonsModel.find({
+      isPolygon: true,
+      deletedAt: null,
+      flag: 1,
+    });
+    return NextResponse.json(polygons);
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// Update polygon
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id, name, points, flag, deletedAt } = body;
+
+    await PolygonsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { name, points, flag, deletedAt } },
+    );
+
+    return NextResponse.json({ message: "Polygon updated!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// Soft delete polygon by setting `deletedAt`
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    await PolygonsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { deletedAt: new Date() } },
+    );
+
+    return NextResponse.json({ message: "Polygon deleted successfully!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+
+// File: src/app/api/settings/route.ts
+import { connectDB } from "@/configs/db";
+import SettingsModel from "@/models/SettingsModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { lat, lng, zoom } = body;
+
+    await SettingsModel.findOneAndUpdate(
+      { _id: "66c3774a9757762530e4bfd1" },
+      { $set: { lat, lng, zoom } },
+    );
+
+    return NextResponse.json(
+      { message: "Point updated successfully!" },
+      { status: 200 },
+    );
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    await connectDB();
+    const settings = await SettingsModel.findOne(
+      { _id: "66c3774a9757762530e4bfd1" },
+      "-__v",
+    );
+    return NextResponse.json(settings);
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/route.ts
+import { connectDB } from "@/configs/db";
+import PointsModel from "@/models/pointsModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const {
+      lat,
+      lng,
+      date,
+      deletedAt,
+      name,
+      frequency,
+      iconType,
+      active,
+      connect,
+      status,
+      level,
+    } = body;
+
+    const points = await PointsModel.create({
+      lat,
+      lng,
+      date,
+      name,
+      iconType,
+      frequency,
+      deletedAt,
+      active,
+      connect,
+      status,
+      level,
+    });
+    return NextResponse.json(
+      { message: "Point created successfully!", points },
+      { status: 200 },
+    );
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    await connectDB();
+    const points = await PointsModel.find({ deletedAt: null }, "-__v");
+    return NextResponse.json(points);
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const {
+      lat,
+      lng,
+      id,
+      name,
+      point,
+      frequency,
+      iconType,
+      active,
+      connect,
+      status,
+      level,
+    } = body;
+
+    await PointsModel.findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          lat,
+          lng,
+          name,
+          point,
+          frequency,
+          iconType,
+          active,
+          connect,
+          status,
+          level,
+        },
+      },
+    );
+
+    return NextResponse.json({ message: "Polygon updated!" });
+  } catch (err) {
+    // @ts-expect-error the
+    return NextResponse.json({ message: err.message }, { status: 500 });
+  }
+}
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    await PointsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { deletedAt: new Date() } },
+    );
+    return NextResponse.json({ message: "Point deleted successfully!" });
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/search/route.ts
+import { connectDB } from "@/configs/db";
+import PointsModel from "@/models/pointsModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { search } = body;
+
+    const points = await PointsModel.find({ name: search, deletedAt: null });
+    return NextResponse.json(points);
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/points/change-status/route.ts
+import { connectDB } from "@/configs/db";
+import PointsModel from "@/models/pointsModel";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    const point = await PointsModel.findOne({ _id: id });
+    await PointsModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { status: !point?.status } },
+    );
+
+    return NextResponse.json({ message: "Point status updated!" });
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
+// File: src/app/api/lines/route.ts
+import { NextResponse } from "next/server";
+import LineModel from "@/models/LineModel";
+import { connectDB } from "@/configs/db";
+import { handleError } from "@/utils/errorHandler";
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { startPoint, endPoint, length, angle } = body;
+
+    if (
+      !startPoint ||
+      !endPoint ||
+      length === undefined ||
+      angle === undefined
+    ) {
+      return NextResponse.json(
+        { message: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    const line = await LineModel.create({
+      startPoint,
+      endPoint,
+      length,
+      angle,
+    });
+
+    return NextResponse.json({ message: "Line created successfully!", line });
+  } catch (err: any) {
+    return NextResponse.json({ message: "somthing went wrong" });
+  }
+}
+export async function GET() {
+  try {
+    await connectDB();
+    const lines = await LineModel.find({ deletedAt: null }); // Fetch all non-deleted lines
+    return NextResponse.json(lines);
+  } catch (err: any) {
+    return handleError(err);
+  }
+}
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "Line ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const deletedLine = await LineModel.findOneAndUpdate(
+      { _id: id, deletedAt: null }, // Ensure that the line hasn't been soft-deleted already
+      { $set: { deletedAt: new Date() } },
+      { new: true },
+    );
+
+    if (!deletedLine) {
+      return NextResponse.json({ message: "Line not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      message: "Line deleted successfully!",
+      deletedLine,
+    });
+  } catch (err: any) {
+    return handleError(err);
+  }
+}
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id, startPoint, endPoint, length, angle, deletedAt } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "Line ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const updatedLine = await LineModel.findOneAndUpdate(
+      { _id: id, deletedAt: null }, // Ensure that the line exists and hasn't been soft-deleted
+      { $set: { startPoint, endPoint, length, angle, deletedAt } },
+      { new: true }, // Return the updated document
+    );
+
+    if (!updatedLine) {
+      return NextResponse.json({ message: "Line not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      message: "Line updated successfully!",
+      updatedLine,
+    });
+  } catch (err: any) {
+    return handleError(err);
+  }
+}
+
+// File: src/app/page.tsx
+import dynamic from "next/dynamic";
+
+const Map = dynamic(() => import("@/components/map/Map"), {
+  ssr: false,
+});
+const Sidebar = dynamic(() => import("@/components/sidebar/Sidebar"), {
+  ssr: false,
+});
+
+export default function Home() {
+  return (
+    <div className="flex h-dvh w-full items-center">
+      <Sidebar />
+      <Map />
+    </div>
+  );
+}
+
+// File: src/app/globals.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+// File: src/helper/math.ts
+export const calculateDistance = (
+  point1: L.LatLng,
+  point2: L.LatLng,
+): number => {
+  const R = 6371e3; // Radius of the Earth in meters
+  const φ1 = (point1.lat * Math.PI) / 180;
+  const φ2 = (point2.lat * Math.PI) / 180;
+  const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
+  const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c; // Distance in meters
+  return distance;
+};
+
+// Function to calculate angle in degrees between two points
+export const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
+  const Δλ = point2.lng - point1.lng;
+  const Δφ = point2.lat - point1.lat;
+  const angle = (Math.atan2(Δφ, Δλ) * 180) / Math.PI; // Angle in degrees
+  return angle;
+};
+
+// File: src/helper/draw.ts
+/* eslint-disable no-console */
+import { deleteData, postData, putData } from "@/services/API";
+import L, { LatLng } from "leaflet";
+import { calculateAngle, calculateDistance } from "./math";
+import { useAppStore } from "@/store/store";
+
+// Draw function to handle both lines and polygons
+export const Draw = async (map: L.Map) => {
+  const drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+  useAppStore.getState().setDrawnItems(drawnItems);
+
+  // Load existing polygons from the database
+  const drawAllPolygon = async () =>
+    await useAppStore.getState().getAllPolygons();
+  const drawAllLine = async () => await useAppStore.getState().getAllLines();
+  const drawLayers = async () => {
+    const [Polygons, AllLines] = await Promise.all([
+      drawAllPolygon(),
+      drawAllLine(),
+    ]);
+    drawnItems.clearLayers();
+    Polygons.map((polygon) => {
+      const layer = L.polygon(
+        polygon.points.map((point) => [point.lat, point.lng]),
+        { interactive: true },
+      );
+      //@ts-expect-error the
+      layer.options.id = polygon._id; // Store the polygon's DB ID in the layer options
+
+      // drawnItems.removeLayer(polygon._id);
+      drawnItems.addLayer(layer);
+    });
+    AllLines.forEach((line) => {
+      const latlngs = [
+        [line.startPoint.lat, line.startPoint.lng],
+        [line.endPoint.lat, line.endPoint.lng],
+      ];
+      //@ts-expect-error the
+      const layer = L.polyline(latlngs, { interactive: true });
+
+      //@ts-expect-error the
+      layer.options.id = line._id; // Store the line's DB ID in the layer options
+      drawnItems.addLayer(layer);
+
+      // Calculate distance and angle
+      //@ts-expect-error the
+      const distance = calculateDistance(line.startPoint, line.endPoint);
+      //@ts-expect-error the
+      const angle = calculateAngle(line.startPoint, line.endPoint);
+
+      const popupContent = `
+    <strong>Line Info</strong><br>
+    Length: ${(distance / 1000).toFixed(2)} km<br>
+    Angle: ${angle.toFixed(2)}°
+  `;
+      layer.bindPopup(popupContent).openPopup();
+    });
+    useAppStore.getState().setDrawnItems(drawnItems);
+  };
+  drawLayers();
+
+  // Create draw control for both polygons and lines
+  const drawControl = new L.Control.Draw({
+    position: "topright",
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: { color: "#bada55" },
+      },
+      polyline: {
+        allowIntersection: false,
+      },
+      marker: false,
+      rectangle: false,
+      circle: false,
+      circlemarker: false,
+    },
+    edit: {
+      featureGroup: drawnItems, // Allow editing and removing of drawn shapes
+      edit: {
+        selectedPathOptions: {
+          color: "#666666",
+        },
+      },
+      remove: true,
+    },
+  });
+  map.addControl(drawControl);
+
+  // Handle shape creation (either polygon or line)
+  //@ts-expect-error the
+  map.on(L.Draw.Event.CREATED, function (event: L.DrawEvents.Created) {
+    const layer = event.layer;
+    drawnItems.addLayer(layer);
+    if (event.layerType === "polygon") {
+      const latlngs = (layer as L.Polygon).getLatLngs() as L.LatLng[][];
+      const flattenedLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+      const latlngsMapped = flattenedLatLngs.map((latlng) => ({
+        lat: (latlng as LatLng).lat,
+        lng: (latlng as LatLng).lng,
+      }));
+      const name = prompt("Enter a name for the polygon:");
+      if (!name) {
+        alert("Polygon name is required!");
+        return;
+      }
+      postData("/api/polygons", { name, points: latlngsMapped, flag: 1 })
+        .then((response) => {
+          const newPolygon = response.data.polygon;
+          useAppStore.getState().pushToHistory({
+            actionType: "create",
+            type: "polygon",
+            polygon: newPolygon,
+          });
+          //@ts-expect-error the
+          layer.options.id = newPolygon._id; // Assign the polygon ID from the response
+          drawnItems.removeLayer(layer);
+          drawLayers();
+        })
+        .catch((err) => {
+          console.error("Error creating polygon:", err);
+          alert("Failed to create the polygon. Please try again.");
+        });
+    } else if (event.layerType === "polyline") {
+      const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
+      if (latlngs.length >= 2) {
+        const point1 = latlngs[0];
+        const point2 = latlngs[1];
+        const distance = calculateDistance(point1, point2);
+        const angle = calculateAngle(point1, point2);
+        postData("/api/lines", {
+          startPoint: { lat: point1.lat, lng: point1.lng },
+          endPoint: { lat: point2.lat, lng: point2.lng },
+          length: distance,
+          angle,
+        })
+          .then((response) => {
+            console.log("create");
+            useAppStore.getState().pushToHistory({
+              actionType: "create",
+              type: "polyline",
+              line: response.data.line,
+            });
+            //@ts-expect-error the
+            layer.options.id = response.data.line._id; // Assign the line ID from the response
+            drawnItems.removeLayer(layer);
+            drawLayers();
+          })
+          .catch((err) => {
+            console.error("Error saving line:", err);
+          });
+
+        const popupContent = `
+          <strong>Line Info</strong><br>
+          Length: ${(distance / 1000).toFixed(2)} km<br>
+          Angle: ${angle.toFixed(2)}°
+        `;
+        layer.bindPopup(popupContent).openPopup();
+      }
+    }
+  });
+
+  // Handle shape editing (both lines and polygons)
+  //@ts-expect-error the
+  map.on(L.Draw.Event.EDITED, function (event: L.DrawEvents.Edited) {
+    const layers = event.layers;
+    layers.eachLayer(function (layer: any) {
+      const id = layer.options.id;
+      if (!id) {
+        console.error("No ID found for the shape.");
+        return;
+      }
+
+      if (layer instanceof L.Polygon) {
+        const updatedLatLngs = layer
+          .getLatLngs()[0]
+          //@ts-expect-error the
+          .map((latlng: L.LatLng) => ({
+            lat: latlng.lat,
+            lng: latlng.lng,
+          }));
+        putData("/api/polygons", { id, points: updatedLatLngs })
+          .then(() => {
+            drawnItems.removeLayer(layer);
+            drawLayers();
+          })
+          .catch((err) => {
+            console.error("Error updating polygon:", err);
+            alert("Failed to update the polygon. Please try again.");
+          });
+      } else if (layer instanceof L.Polyline) {
+        const latlngs = layer.getLatLngs() as L.LatLng[];
+        if (latlngs.length >= 2) {
+          const point1 = latlngs[0];
+          const point2 = latlngs[1];
+          const distance = calculateDistance(point1, point2);
+          const angle = calculateAngle(point1, point2);
+          putData("/api/lines", {
+            id,
+            startPoint: { lat: point1.lat, lng: point1.lng },
+            endPoint: { lat: point2.lat, lng: point2.lng },
+            length: distance,
+            angle,
+          })
+            .then(() => {
+              drawnItems.removeLayer(layer);
+              drawLayers();
+            })
+            .catch((err) => {
+              console.error("Error updating line:", err);
+            });
+        }
+      }
+    });
+  });
+
+  // Handle shape deletion (both lines and polygons)
+  //@ts-expect-error the
+  map.on(L.Draw.Event.DELETED, function (event: L.DrawEvents.Deleted) {
+    const layers = event.layers;
+    layers.eachLayer(function (layer: any) {
+      const id = layer.options.id;
+      if (!id) {
+        console.error("No ID found for the shape.");
+        return;
+      }
+
+      if (layer instanceof L.Polygon) {
+        deleteData("/api/polygons", { id })
+          .then(() => {
+            drawLayers();
+          })
+          .catch((err) => {
+            console.error("Error deleting polygon:", err);
+            alert("Failed to delete the polygon. Please try again.");
+          });
+      } else if (layer instanceof L.Polyline) {
+        deleteData("/api/lines", { id })
+          .then(() => {
+            drawLayers();
+          })
+          .catch((err) => {
+            console.error("Error deleting line:", err);
+          });
+      }
+    });
+  });
+};
+
+// File: src/helper/controlSaveTiles.ts
+import "leaflet.offline";
+import "leaflet-draw";
+import L from "leaflet";
+export const controlSaveTiles = ({
+  map,
+  setProgress,
+  setTotal,
+}: {
+  map: L.Map;
+  setProgress: React.Dispatch<React.SetStateAction<number>>;
+  setTotal: React.Dispatch<React.SetStateAction<number>>;
+}) => {
+  const tileLayerOffline = L.tileLayer.offline(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution:
+        '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: "abc",
+      minZoom: 11,
+      maxZoom: 16,
+    },
+  );
+  if (tileLayerOffline.addTo) {
+    tileLayerOffline.addTo(map);
+  }
+  const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
+    position: "topright",
+    zoomlevels: [11, 12, 13, 14, 15, 16],
+    confirm(layer: any, succescallback: () => void) {
+      if (
+        window.confirm(
+          `Are you sure you want to download ${layer._tilesforSave.length} tiles?`,
+        )
+      ) {
+        succescallback();
+      }
+    },
+    confirmRemoval(layer: any, successCallback: () => void) {
+      if (window.confirm("Are you sure you want to remove all tiles?")) {
+        successCallback();
+      }
+    },
+    saveText: `<div class="w-full h-full flex justify-center items-center">
+  <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.5"
+      stroke="currentColor"
+      class="size-5"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+      />
+    </svg>
+  </div>`,
+    rmText: `<div class="w-full h-full flex justify-center items-center">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="size-5"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+        />
+      </svg>
+    </div>`,
+  });
+  if (controlSaveTiles.addTo) {
+    controlSaveTiles.addTo(map);
+  }
+
+  let progress: number;
+  tileLayerOffline.on("savestart", (e: any) => {
+    progress = 0;
+    setTotal(e._tilesforSave.length);
+  });
+  tileLayerOffline.on("savetileend", () => {
+    progress += 1;
+    setProgress(progress);
+  });
+};
+
+// File: src/helper/helper.ts
+export const dateFormatter = (
+  date: {
+    start: { day: number; month: number; year: number };
+    end: { day: number; month: number; year: number };
+  },
+  time: { hour: number; minute: number },
+) => {
+  return {
+    start: `${date.start.month}/${date.start.day}/${date.start.year} ${time.hour}:${time.minute}`,
+    end: `${date.end.month}/${date.end.day}/${date.end.year} ${time.hour}:${time.minute}`,
+  };
+};
+
+// File: src/helper/geometry.ts
+// src/helper/geometry.ts
+
+import { LatLng } from "leaflet";
+
+// Haversine formula to calculate the distance between two LatLng points
+export function getDistance(point1: LatLng, point2: LatLng): number {
+  const R = 6371e3; // Radius of the earth in meters
+  const φ1 = (point1.lat * Math.PI) / 180;
+  const φ2 = (point2.lat * Math.PI) / 180;
+  const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
+  const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c; // Distance in meters
+  return distance;
+}
+
+// File: src/helper/offline.ts
+/* global L, LeafletOffline, $ */
+
+const urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+// Show tile list function
+function showTileList(): void {
+  // @ts-expect-error the
+  LeafletOffline.getStorageInfo(urlTemplate).then((r: any[]) => {
+    const list = document.getElementById("tileinforows");
+    if (list) {
+      list.innerHTML = "";
+      r.forEach((tile: any, i: number) => {
+        const createdAt = new Date(tile.createdAt);
+        list.insertAdjacentHTML(
+          "beforeend",
+          `<tr><td>${i}</td><td>${tile.url}</td><td>${tile.key}</td><td>${createdAt.toDateString()}</td></tr>`,
+        );
+      });
+    }
+  });
+}
+
+// @ts-expect-error the
+$("#storageModal").on("show.bs.modal", showTileList);
+
+// Initialize map and base layer
+const map = L.map("map");
+const baseLayer = L.tileLayer
+  .offline(urlTemplate, {
+    attribution: "Map data {attribution.OpenStreetMap}",
+    subdomains: "abc",
+    minZoom: 13,
+  } as L.TileLayerOptions)
+  .addTo(map);
+
+// Set up tile saving controls
+const control = L.control.savetiles(baseLayer, {
+  position: "topright",
+  zoomlevels: [13, 16],
+  confirm: (layer: any, successCallback: () => void): void => {
+    if (window.confirm(`Save ${layer._tilesforSave.length}`)) {
+      successCallback();
+    }
+  },
+  confirmRemoval: (layer: any, successCallback: () => void): void => {
+    if (window.confirm("Remove all the tiles?")) {
+      successCallback();
+    }
+  },
+});
+
+control.addTo(map);
+
+// Set map view
+map.setView({ lat: 51.985, lng: 5 }, 16);
+
+// Add layers to map
+const layerswitcher = L.control
+  // @ts-expect-error the
+  .layers({ "osm (offline)": baseLayer }, null, { collapsed: false })
+  .addTo(map);
+
+// GeoJSON storage layer
+let storageLayer: L.GeoJSON;
+
+// Get stored GeoJSON data
+const getGeoJsonData = (): Promise<L.GeoJSON> =>
+  // @ts-expect-error the
+  LeafletOffline.getStorageInfo(urlTemplate).then((data: any) =>
+    // @ts-expect-error the
+    LeafletOffline.getStoredTilesAsJson(baseLayer, data),
+  );
+
+// Add storage layer to the map
+const addStorageLayer = (): void => {
+  getGeoJsonData().then((geojson: any) => {
+    storageLayer = L.geoJSON(geojson).bindPopup(
+      (clickedLayer: any) => clickedLayer.feature.properties.key,
+    );
+    layerswitcher.addOverlay(storageLayer, "stored tiles");
+  });
+};
+
+addStorageLayer();
+
+// Event listener to remove tiles
+document.getElementById("remove_tiles")?.addEventListener("click", () => {
+  (control as any)._rmTiles(); // Assuming _rmTiles is a method without typing in the library
+});
+
+// Update storage size event
+baseLayer.on("storagesize", (e: any) => {
+  document.getElementById("storage")!.innerHTML = e.storagesize.toString();
+  if (storageLayer) {
+    storageLayer.clearLayers();
+    getGeoJsonData().then((data: any) => {
+      storageLayer.addData(data);
+    });
+  }
+});
+
+// Progress tracking for saving tiles
+let progress: number;
+baseLayer.on("savestart", (e: any) => {
+  progress = 0;
+  document.getElementById("total")!.innerHTML =
+    e._tilesforSave.length.toString();
+});
+baseLayer.on("savetileend", () => {
+  progress += 1;
+  document.getElementById("progress")!.innerHTML = progress.toString();
+});
+
+// File: src/utils/errorHandler.ts
+import { NextResponse } from "next/server";
+
+export const handleError = (err: Error, status: number = 500) => {
+  console.error(err); // log the  error
+  return NextResponse.json({ message: err.message }, { status: 500 });
+};
+
+// File: src/store/useModal.ts
+import { IPoint } from "@/types";
+import React from "react";
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+
+export type ModalData = {
+  point?: IPoint;
+};
+interface IModal {
+  isLoading: boolean;
+  data: ModalData;
+  isOpen: boolean;
+  modal: React.ReactNode;
+}
+export type Actions = {
+  setOpen: (modal: React.ReactNode, data?: ModalData) => void;
+  setClose: () => void;
+  setIsLoading: (state: (() => boolean) | boolean) => void;
+};
+export type Store = IModal & Actions;
+const defaultValues: IModal = {
+  isLoading: false,
+  data: {},
+  modal: null,
+  isOpen: false,
+};
+export const useModal = create<Store>()(
+  devtools((set, get) => ({
+    ...defaultValues,
+    setOpen: (modal, data) => {
+      set({ modal, isOpen: true, data: { ...get().data, ...data } });
+    },
+    setClose: () => {
+      set(defaultValues);
+    },
+    setIsLoading: (state) => {
+      if (typeof state == "boolean") {
+        return set({ isLoading: state });
+      }
+      return set({ isLoading: state() });
+    },
+  })),
+);
+
+// File: src/store/store.ts
+import { deleteData, getData, postData, putData } from "@/services/API";
+import { ILine, IPoint, IPolygon, ISettings } from "@/types";
+import { create } from "zustand";
+import L, { polygon } from "leaflet";
+interface IHistory {
+  actionType: "create" | "delete" | "update";
+  type: "polygon" | "polyline";
+  polygon?: IPolygon;
+  line?: ILine;
+}
+interface IFuture extends IHistory {
+  layer: L.Layer;
+}
+interface dataType {
+  map: L.Map | null;
+  isLoading: boolean;
+  points: IPoint[];
+  polygons: IPolygon[]; // State for polygons
+  lines: ILine[]; // New state for lines
+  settings?: ISettings;
+  addPointModal: boolean;
+  showPointList: boolean;
+  drawnItems?: L.FeatureGroup<any>;
+  history: IHistory[]; // Array to track history for undo
+  future: IFuture[]; // Array to track future for redo
+}
+
+interface storeAction {
+  setDrawnItems: (drawnItems: L.FeatureGroup<any>) => void;
+  setAddPointModal: (value: boolean) => void;
+  setShowPointList: (value: boolean) => void;
+  setPoints: (points: IPoint[]) => void;
+  setPolygons: (polygons: IPolygon[]) => void; // Setter for polygons
+  setLines: (lines: ILine[]) => void; // Setter for lines
+  addLine: (line: ILine) => void; // Action to add a line
+  getSettings: () => void;
+  getAllPoints: () => void;
+  refreshAllData: () => void;
+  getAllPolygons: () => Promise<IPolygon[]>;
+  getAllLines: () => Promise<ILine[]>;
+  setIsLoading: (state: (() => boolean) | boolean) => void;
+  setMap: (state: (() => L.Map | null) | (L.Map | null)) => void;
+  pushToHistory: ({
+    actionType,
+    type,
+    line,
+    polygon,
+  }: {
+    actionType: "create" | "delete" | "update";
+    type: "polygon" | "polyline";
+    polygon?: IPolygon;
+    line?: ILine;
+  }) => void;
+  undo: () => void;
+  redo: () => void;
+}
+
+const initialData: dataType = {
+  map: null,
+  isLoading: false,
+  addPointModal: false,
+  points: [],
+  polygons: [],
+  lines: [],
+  showPointList: false,
+  history: [],
+  future: [],
+};
+
+export type storeType = dataType & storeAction;
+
+export const useAppStore = create<storeType>((set, get) => ({
+  ...initialData,
+
+  setAddPointModal: (value) => set(() => ({ addPointModal: value })),
+  setShowPointList: (value) => set(() => ({ showPointList: value })),
+
+  setPoints: (points) => set(() => ({ points })),
+  setPolygons: (polygons) => set(() => ({ polygons })),
+  setLines: (lines) => set(() => ({ lines })),
+
+  addLine: (line) => set((state) => ({ lines: [...state.lines, line] })),
+
+  getSettings: () => {
+    set({ isLoading: true });
+    getData("/api/settings", {}).then((res) => {
+      set({ settings: res.data, isLoading: false });
+    });
+  },
+
+  getAllPoints: () => {
+    set({ isLoading: true });
+    getData("/api/points", {})
+      .then((res) => {
+        set({ points: res.data, isLoading: false });
+      })
+      .catch((error) => {
+        console.error("Error fetching points:", error);
+        set({ isLoading: false });
+      });
+  },
+
+  getAllPolygons: async () => {
+    set({ isLoading: true });
+    const res = await getData("/api/polygons", {});
+    set({ polygons: res.data, isLoading: false });
+    return res.data;
+  },
+
+  getAllLines: async () => {
+    set({ isLoading: true });
+    const res = await getData("/api/lines", {});
+    set({ lines: res.data, isLoading: false });
+    return res.data;
+  },
+
+  setIsLoading: (state) => {
+    if (typeof state == "boolean") {
+      set({ isLoading: state });
+    } else if (typeof state == "function") {
+      set({ isLoading: state() });
+    }
+  },
+
+  setMap: (state) => {
+    if (typeof state == "function") {
+      set({ map: state() });
+    } else {
+      set({ map: state });
+    }
+  },
+
+  refreshAllData: () => {
+    get().getAllLines();
+    get().getAllPoints();
+    get().getAllPolygons();
+    get().getSettings();
+  },
+
+  // Push state to history and reset future (for new actions)
+  pushToHistory: ({ actionType, type, line, polygon }) => {
+    console.log("addToHistory");
+    const { history } = get();
+    set({
+      history: [...history, { actionType, type, line, polygon }],
+      future: [],
+    });
+  },
+
+  // Undo: Revert the last action and store it in future
+  undo: () => {
+    const {
+      history,
+      future,
+      drawnItems,
+      getAllLines,
+      getAllPolygons,
+      setIsLoading,
+    } = get();
+    if (history.length === 0 || !drawnItems) {
+      return;
+    }
+    console.log(history);
+
+    const lastAction = history[history.length - 1];
+
+    let item: IPolygon | IPoint;
+    if (lastAction.polygon) {
+      item = lastAction.polygon;
+    } else {
+      // @ts-expect-error the
+      item = lastAction.line!;
+    }
+
+    const layer = drawnItems
+      .getLayers()
+      // @ts-expect-error the
+      .findLast((layer) => layer.options.id == item._id);
+    if (!layer) {
+      return;
+    }
+    const updatedHistory = history.slice(0, -1);
+    set({
+      history: updatedHistory,
+      future: [{ ...lastAction, layer }, ...future],
+    });
+
+    switch (lastAction.actionType) {
+      case "create":
+        console.log("fuck");
+        drawnItems.removeLayer(layer);
+        if (lastAction.type == "polygon") {
+          deleteData("/api/polygons", { id: item._id }).then(() => {
+            getAllPolygons();
+            setIsLoading(false);
+          });
+        } else if (lastAction.type == "polyline") {
+          deleteData("/api/lines", { id: item._id }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+
+        break;
+      case "delete":
+      case "update":
+    }
+  },
+
+  // Redo: Reapply the last undone action
+  redo: () => {
+    const {
+      future,
+      history,
+      drawnItems,
+      getAllPolygons,
+      getAllLines,
+      setIsLoading,
+    } = get();
+    if (future.length === 0 || !drawnItems) {
+      return;
+    }
+
+    const nextAction = future[0];
+    let item: IPolygon | IPoint;
+    if (nextAction.polygon) {
+      item = nextAction.polygon;
+    } else {
+      // @ts-expect-error the
+      item = nextAction.line!;
+    }
+    const updatedFuture = future.slice(1);
+    set({
+      future: updatedFuture,
+      history: [
+        ...history,
+        {
+          type: nextAction.type,
+          actionType: nextAction.actionType,
+          line: nextAction.line,
+          polygon: nextAction.polygon,
+        },
+      ],
+    });
+
+    switch (nextAction.actionType) {
+      case "create":
+        drawnItems.addLayer(nextAction.layer);
+        if (nextAction.type == "polygon") {
+          putData("/api/polygons", { id: item._id, deletedAt: null }).then(
+            () => {
+              getAllPolygons();
+              setIsLoading(false);
+            },
+          );
+        } else if (nextAction.type == "polyline") {
+          putData("/api/lines", { id: item._id, deletedAt: null }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+        break;
+      case "delete":
+      case "update":
+    }
+  },
+  setDrawnItems: (drawnItems) => {
+    set({ drawnItems });
+  },
+}));
+
+// File: src/css/style.css
+.leaflet-container,
+.leaflet {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes spinner {
+  0% {
+    transform: rotate(0);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner-anim {
+  animation: spinner 1s infinite;
+}
+.leaflet-top {
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row-reverse; /* Arrange the buttons in a row (horizontal) */
+  box-shadow: none;
+}
+.leaflet-control-zoom {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-section {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-toolbar {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-toolbar {
+  margin-top: 0px;
+}
+.savetiles {
+  gap: 3px;
+  display: flex; /* Use flexbox to arrange the buttons horizontally */
+  flex-direction: row; /* Arrange the buttons in a row (horizontal) */
+}
+.leaflet-draw-actions {
+  margin-top: 35px;
+}
+
+// File: src/types/index.ts
+// File: src/types/index.ts
+
+export interface IPoint {
+  _id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  frequency: number;
+  iconType: string;
+  date: string;
+  active: boolean;
+  status: boolean;
+  connect: boolean;
+  level: number;
+}
+
+export interface ISettings {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+export interface ILine {
+  _id: string;
+  startPoint: { lat: number; lng: number };
+  endPoint: { lat: number; lng: number };
+  length: number;
+  angle: number;
+}
+
+export interface IFormData {
+  name: string;
+  lat: string;
+  lng: string;
+  frequency: string;
+  lat_settings?: string;
+  lng_settings?: string;
+  zoom?: string;
+  search?: string;
+}
+
+// New IPolygon interface for polygons
+export interface IPolygon {
+  _id: string;
+  name: string;
+  points: { lat: number; lng: number }[]; // Array of lat/lng for polygon vertices
+  flag: number; // 0 (hide) or 1 (show)
+  isPolygon: boolean; // True for polygons
+  date: string;
+}
+
+export interface IModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: IFormData) => void;
+  loading: boolean;
+  initialData?: IFormData;
+}
+
+export interface MapComponentProps {
+  points: IPoint[];
+  polygons: IPolygon[]; // Add polygons to map component props
+  settings: ISettings;
+  onMarkerClick: (point: IPoint) => void;
+}
+
+// File: src/types/leaflet-offline.d.ts
+import "leaflet";
+
+declare module "leaflet" {
+  namespace tileLayer {
+    function offline(
+      urlTemplate: string,
+      options?: L.TileLayerOptions,
+    ): L.TileLayer;
+  }
+
+  namespace control {
+    function savetiles(layer: L.TileLayer, options: any): L.Control;
+  }
+}
+
+interface LeafletOffline {
+  getStorageInfo(urlTemplate: string): Promise<any[]>;
+  getStoredTilesAsJson(layer: L.TileLayer, data: any[]): Promise<L.GeoJSON>;
+}
+declare module "leaflet" {
+  interface LeafletEvent {
+    _tilesforSave?: any[]; // Define the custom property _tilesforSave, change `any[]` to a more specific type if known
+  }
+}
+
+// File: src/validator/index.ts
+import { z } from "zod";
+
+export const pointObject = z.object({
+  name: z.string().min(2, {
+    message: "Username must be at least 2 characters.",
+  }),
+  lat: z.number(),
+  lng: z.number(),
+  frequency: z.number(),
+  iconType: z.string(),
+  active: z.boolean(),
+  status: z.boolean(),
+  connect: z.boolean(),
+  level: z.number(),
+});
+export const settingsObject = z.object({
+  lat_settings: z.number().min(-90).max(90), // Validation for lat
+  lng_settings: z.number().min(-180).max(180), // Validation for lng
+  zoom: z
+    .number()
+    .min(0, { message: "Zoom must be at least 0" })
+    .max(22, { message: "Zoom must be at most 22" }), // Validation for zoom
+});
+
+// File: src/components/global/pointAction.tsx
+"use client";
+import { Tooltip } from "@nextui-org/react";
+import React from "react";
+import { Modals } from "../modals";
+import { PointForm } from "../forms/pointForm";
+import { useModal } from "@/store/useModal";
+import { IPoint } from "@/types";
+import { DeletePointModal } from "../modals/deletePointModal";
+import { EditIcon, Trash2 } from "lucide-react";
+
+export const PointAction = ({ data }: { data: IPoint }) => {
+  const setOpen = useModal((state) => state.setOpen);
+  return (
+    <div className="relative flex items-center gap-4">
+      <Tooltip content="edit point">
+        <button
+          onClick={() =>
+            setOpen(
+              <Modals title="edit point">
+                <PointForm type="edit"></PointForm>
+              </Modals>,
+              { point: data },
+            )
+          }
+          className="cursor-pointer text-lg text-default-400 active:opacity-50"
+        >
+          <EditIcon />
+        </button>
+      </Tooltip>
+
+      <Tooltip color="danger" content="delete point">
+        <button
+          onClick={() =>
+            setOpen(<DeletePointModal data={data}></DeletePointModal>)
+          }
+          className="cursor-pointer text-lg text-danger active:opacity-50"
+        >
+          <Trash2 />
+        </button>
+      </Tooltip>
+    </div>
+  );
+};
+
+// File: src/components/modals/downloadModal.tsx
+"use client";
+import React, { useEffect } from "react";
+import { Modals } from ".";
+import { ModalBody, ModalFooter, Spinner } from "@nextui-org/react";
+import { useModal } from "@/store/useModal";
+export const DownloadModal = ({
+  total,
+  progress,
+}: {
+  total: number;
+  progress: number;
+}) => {
+  const setClose = useModal((state) => state.setClose);
+  useEffect(() => {
+    if (total == progress) {
+      setClose();
+    }
+  }, [total, progress]);
+  return (
+    <Modals title={"delete point"}>
+      <ModalBody>
+        <div className="flex w-full items-center justify-between gap-2 text-sm">
+          <span>Total Tiles : {total}</span>
+          <span>Downloaded Tiles : {progress}</span>
+
+          {/* <div className="h-5 w-full rounded-full bg-gray-200">
+            <div
+              style={{ width: `${total / progress}%` }}
+              className="flex h-full items-center justify-center rounded-full bg-indigo-600 text-xs text-white"
+            >
+              {progress}%
+            </div>
+          </div> */}
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <div className="flex w-full justify-center gap-4">
+          <Spinner size="sm" label="Please wait..." />
+        </div>
+      </ModalFooter>
+    </Modals>
+  );
+};
+
+// File: src/components/modals/index.tsx
+"use client";
+import { Modal, ModalContent, ModalHeader } from "@nextui-org/react";
+import { useModal } from "@/store/useModal";
+export function Modals({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  const { isOpen, setClose } = useModal((state) => state);
+  return (
+    <Modal
+      classNames={{ backdrop: "z-[999]", wrapper: "z-[9999]" }}
+      isOpen={isOpen}
+      onClose={() => setClose()}
+    >
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="flex flex-col gap-1">{title}</ModalHeader>
+            {children}
+          </>
+        )}
+      </ModalContent>
+    </Modal>
+  );
+}
+
+// File: src/components/modals/deletePointModal.tsx
+"use client";
+import React from "react";
+import { Modals } from ".";
+import { useModal } from "@/store/useModal";
+import { deleteData } from "@/services/API";
+import { IPoint } from "@/types";
+import { Button, ModalBody, ModalFooter } from "@nextui-org/react";
+import { useAppStore } from "@/store/store";
+
+export const DeletePointModal = ({ data }: { data: IPoint }) => {
+  const setClose = useModal((state) => state.setClose);
+  const getAllPoints = useAppStore((state) => state.getAllPoints);
+  const setIsLoading = useModal((state) => state.setIsLoading);
+  const isLoading = useModal((state) => state.isLoading);
+  const deletePointHandler = () => {
+    setIsLoading(true);
+    deleteData("/api/points", { id: data._id }).then(() => {
+      getAllPoints();
+      setIsLoading(false);
+      setClose();
+    });
+  };
+  return (
+    <Modals title={"delete point"}>
+      <ModalBody>
+        <div className="flex w-full gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+            className="size-7 text-red-600"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+            />
+          </svg>
+
+          <span>Are you sure you want to delete this point?</span>
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <div className="flex w-full justify-center gap-4">
+          <Button
+            color="danger"
+            variant="light"
+            type="button"
+            onClick={() => setClose()}
+          >
+            Close
+          </Button>
+          <Button
+            isLoading={isLoading}
+            variant="shadow"
+            className="bg-red-500 text-white shadow-green-200"
+            onClick={deletePointHandler}
+          >
+            remove point
+          </Button>
+        </div>
+      </ModalFooter>
+    </Modals>
+  );
+};
+
+// File: src/components/map/Table.tsx
+"use client";
+import React, { useState } from "react";
+import {
+  Chip,
+  Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from "@nextui-org/react";
+import { PointAction } from "../global/pointAction";
+import { IPoint } from "@/types";
+import { useAppStore } from "@/store/store";
+import { postData } from "@/services/API";
+export const statusColorMap: { [key: string]: "success" | "danger" } = {
+  active: "success",
+  disable: "danger",
+};
+const columns = [
+  { name: "id", uid: "id" },
+  { name: "name", uid: "name" },
+  { name: "lat", uid: "lat" },
+  { name: "lng", uid: "lng" },
+  { name: "frequency", uid: "frequency" },
+  { name: "status", uid: "status" },
+  { name: "time", uid: "time" },
+  { name: "", uid: "action" },
+];
+export const Tables = () => {
+  const { points, isLoading, getAllPoints } = useAppStore((state) => state);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const changeStatusHandler = (id: string) => {
+    setStatusLoading(true);
+    postData("/api/points/change-status", { id }).then(() => {
+      setStatusLoading(false);
+      getAllPoints();
+    });
+  };
+
+  const renderCell = (point: IPoint, columnKey: string, id: string) => {
+    const cellValue = point[columnKey as keyof IPoint];
+
+    switch (columnKey) {
+      case "id":
+        return <span>{id}</span>;
+      case "name":
+      case "lat":
+      case "lng":
+      case "frequency":
+        return (
+          <div className="flex flex-col">
+            <p className="text-sm font-bold text-gray-700">
+              {point[columnKey]}
+            </p>
+          </div>
+        );
+      case "status":
+        return (
+          <button onClick={() => changeStatusHandler(point._id)}>
+            <Chip
+              className="capitalize"
+              color={statusColorMap[point.status ? "active" : "disable"]}
+              size="sm"
+              variant="flat"
+            >
+              {statusLoading ? "wait..." : point.status ? "active" : "disable"}
+            </Chip>
+          </button>
+        );
+      case "time":
+        return (
+          <div className="flex flex-col">
+            <p className="text-sm font-bold capitalize text-gray-700">
+              {new Date(point.date).toLocaleString()}
+            </p>
+          </div>
+        );
+      case "action":
+        return <PointAction data={point}></PointAction>;
+      default:
+        return cellValue ? <span>{cellValue}</span> : null;
+    }
+  };
+  return (
+    <Table
+      classNames={{ wrapper: "bg-transparent shadow-none rounded-none" }}
+      className="max-h-fit overflow-scroll"
+      aria-label="Example table with custom cells"
+    >
+      <TableHeader columns={columns}>
+        {(column) => (
+          <TableColumn key={column.uid} align="center">
+            {column.name}
+          </TableColumn>
+        )}
+      </TableHeader>
+      <TableBody
+        loadingContent={<Spinner label="Loading..." />}
+        isLoading={isLoading}
+        items={points}
+        emptyContent="doesn't exist any point  !"
+      >
+        {(item) => (
+          <TableRow key={item._id}>
+            {(columnKey) => (
+              <TableCell>
+                {renderCell(
+                  item,
+                  //@ts-expect-error the
+                  columnKey,
+                  points.findIndex((p) => p._id === item._id) + 1,
+                )}
+              </TableCell>
+            )}
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+};
+
+// File: src/components/map/toolbar.tsx
+"use client";
+import {
+  Button,
+  DateRangePicker,
+  DateValue,
+  Input,
+  RangeValue,
+  Spinner,
+  TimeInput,
+  TimeInputValue,
+} from "@nextui-org/react";
+import React, { useState } from "react";
+import { Modals } from "../modals";
+import { SettingsForm } from "../forms/settingsForm";
+import { useForm } from "react-hook-form";
+import { useAppStore } from "@/store/store";
+import { useModal } from "@/store/useModal";
+import {
+  RedoIcon,
+  RefreshCw,
+  SearchIcon,
+  Settings,
+  UndoIcon,
+  X,
+} from "lucide-react";
+
+export const Toolbar = () => {
+  const {
+    points,
+    getAllPoints,
+    isLoading,
+    setPoints,
+    refreshAllData,
+    undo,
+    redo,
+  } = useAppStore((state) => state);
+  const { setOpen } = useModal((state) => state);
+
+  const { register, setValue, watch } = useForm({
+    mode: "onBlur",
+    defaultValues: {
+      search: "",
+    },
+  });
+
+  const [date, setDate] = useState<RangeValue<DateValue>>();
+  const [from, setFrom] = useState<TimeInputValue>();
+  const [to, setTo] = useState<TimeInputValue>();
+  const searchVal = watch("search");
+  const searchPointsHandler = () => {
+    if (!searchVal) {
+      getAllPoints(); // Reset points to default if no search value
+      return;
+    }
+    const filteredPoints = points.filter((data) =>
+      data.name.toLowerCase().includes(searchVal.toLowerCase()),
+    );
+
+    setPoints(filteredPoints);
+  };
+
+  // Date and Time Filter Handler
+  const sortByDateHandler = () => {
+    if (!date?.start || !date?.end) {
+      return;
+    }
+    //@ts-expect-error the
+    const startDate = new Date(date.start); //@ts-expect-error the
+    const endDate = new Date(date.end);
+    const filteredPoints = points.filter((point) => {
+      const pointDate = new Date(point.date);
+      const isWithinDateRange = pointDate >= startDate && pointDate <= endDate;
+      if (from && to) {
+        const pointTime = `${pointDate.getHours()}:${pointDate.getMinutes()}`;
+        const fromTime = `${from.hour}:${from.minute}`;
+        const toTime = `${to.hour}:${to.minute}`;
+
+        return (
+          isWithinDateRange && pointTime >= fromTime && pointTime <= toTime
+        );
+      }
+      return isWithinDateRange;
+    });
+    setPoints(filteredPoints);
+  };
+
+  return (
+    <div className="flex w-full items-center justify-between px-4 pb-1">
+      <div className="toolbar-buttons">
+        {/* Other buttons */}
+        <button onClick={undo}>
+          <UndoIcon /> Undo
+        </button>
+        <button onClick={redo}>
+          <RedoIcon /> Redo
+        </button>
+      </div>
+      <div className="flex justify-center gap-16">
+        <Input
+          isRequired
+          className="w-80"
+          labelPlacement="outside"
+          placeholder="search point..."
+          value={searchVal}
+          {...register("search")}
+          endContent={
+            <div className="flex gap-3">
+              {searchVal?.length > 0 && (
+                <button
+                  onClick={() => {
+                    setValue("search", "");
+                    searchPointsHandler();
+                  }}
+                >
+                  <X />
+                </button>
+              )}
+              <button onClick={searchPointsHandler}>
+                <SearchIcon size={20}></SearchIcon>
+              </button>
+            </div>
+          }
+          size="md"
+        />
+      </div>
+
+      <div className="flex flex-row-reverse gap-4">
+        <DateRangePicker
+          aria-label="filter by date"
+          value={date}
+          onChange={(x) => setDate(x)}
+          hideTimeZone
+          defaultValue={date}
+        />
+        <TimeInput
+          label="from"
+          value={from}
+          onChange={setFrom}
+          labelPlacement="outside-left"
+        />
+        <TimeInput
+          label="to"
+          value={to}
+          onChange={setTo}
+          labelPlacement="outside-left"
+        />
+        <Button
+          onClick={sortByDateHandler}
+          variant="shadow"
+          className="bg-indigo-600 text-white shadow-indigo-200"
+        >
+          Filter
+        </Button>
+        {date?.start && (
+          <button
+            onClick={() => {
+              setDate(undefined); // Reset date
+              setFrom(undefined);
+              setTo(undefined);
+              getAllPoints(); // Reset points list
+            }}
+          >
+            <X />
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-row-reverse items-center gap-4">
+        {/* Settings Button */}
+        <button
+          onClick={() =>
+            setOpen(
+              <Modals title="edit point">
+                <SettingsForm></SettingsForm>
+              </Modals>,
+            )
+          }
+          className="flex size-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-200 outline-none transition-all duration-300 active:scale-95"
+        >
+          {isLoading ? <Spinner size="sm" color="white" /> : <Settings />}
+        </button>
+
+        <button
+          onClick={() => {
+            refreshAllData();
+          }}
+          className="flex size-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600 shadow-lg shadow-gray-200 transition-all duration-300 active:scale-95"
+        >
+          <RefreshCw />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// File: src/components/map/Map.tsx
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { MapContainer, TileLayer } from "react-leaflet";
+import { Spinner } from "@nextui-org/react";
+import { useAppStore } from "@/store/store";
+import { IPoint } from "@/types";
+import { ModalProvider } from "@/providers/ModalProvider";
+import { useModal } from "@/store/useModal";
+import { Modals } from "../modals";
+import { PointForm } from "../forms/pointForm";
+import { Tables } from "./Table";
+import { Toolbar } from "./toolbar";
+import MarkerClusterGroup from "react-leaflet-cluster";
+import { DownloadModal } from "../modals/downloadModal";
+import { Mark } from "./mark";
+import { Draw } from "@/helper/draw";
+import "leaflet.offline";
+import "leaflet-draw";
+import L from "leaflet";
+import { controlSaveTiles } from "@/helper/controlSaveTiles";
+export default function Map() {
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
+  const {
+    showPointList,
+    points,
+    settings,
+    isLoading,
+    setMap,
+    refreshAllData,
+    map,
+  } = useAppStore((state) => state);
+  const { setOpen, modal } = useModal((state) => state);
+  const [pointLabel, setPointLabel] = useState<Partial<IPoint>>({});
+  const [once, setOnce] = useState(true);
+
+  // Fetch all points
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    if (once) {
+      setOnce(false);
+      refreshAllData();
+
+      if (map) {
+        new L.Control.Zoom({
+          position: "topright",
+        }).addTo(map);
+
+        Draw(map);
+        map.on("dblclick", (e: L.LeafletMouseEvent) => {
+          const { lat, lng } = e.latlng;
+          setOpen(
+            <Modals title="Create Point">
+              <PointForm type="create" />
+            </Modals>,
+            // @ts-expect-error thee
+            { point: { name: "", lat: lat, lng: lng, frequency: 0 } },
+          );
+        });
+        controlSaveTiles({ map, setProgress, setTotal });
+      }
+    }
+  }, [map]);
+  useEffect(() => {
+    if (progress > 0 && total > 0 && !modal) {
+      setOpen(
+        <DownloadModal progress={progress} total={total}></DownloadModal>,
+      );
+    }
+  }, [progress, total]);
+
+  return (
+    <div className="flex size-full flex-col">
+      <ModalProvider></ModalProvider>
+      <div className={"relative size-full"}>
+        <MapContainer
+          center={
+            settings?.lat
+              ? [settings.lat, settings.lng]
+              : [35.695246913723636, 51.41011318883557]
+          }
+          zoom={settings?.zoom ? settings?.zoom : 13}
+          scrollWheelZoom={true}
+          zoomControl={false}
+          doubleClickZoom={false}
+          ref={setMap}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {isLoading ? (
+            <div className="relative z-[999] flex size-full items-center justify-center bg-transparent">
+              <Spinner label="please wait..." />
+            </div>
+          ) : (
+            <>
+              <MarkerClusterGroup>
+                {points.length > 0 &&
+                  points.map(
+                    (point) =>
+                      point.status && (
+                        <Mark
+                          key={point._id}
+                          point={point}
+                          setPointLabel={setPointLabel}
+                        ></Mark>
+                      ),
+                  )}
+              </MarkerClusterGroup>
+            </>
+          )}
+        </MapContainer>
+        {pointLabel?.lat && (
+          <div
+            className={
+              "absolute bottom-4 right-4 z-[999] flex flex-col gap-1 rounded-lg bg-white p-2 text-xs transition-all duration-300"
+            }
+          >
+            <span>lat: {pointLabel?.lat}</span>
+            <span>lng: {pointLabel?.lng}</span>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={`mt-3 flex w-full flex-col  ${
+          showPointList ? "h-2/5" : "h-0 overflow-hidden"
+        } transition-all duration-300`}
+      >
+        <Toolbar></Toolbar>
+        <Tables></Tables>
+      </div>
+    </div>
+  );
+}
+
+// File: src/components/map/PointIcon.tsx
+import L from "leaflet";
+
+export const getPointIcon = (iconType: string) => {
+  switch (iconType) {
+    case "car":
+      return L.icon({
+        iconUrl: "/assets/car.svg",
+        iconSize: [32, 32],
+      });
+    case "plane":
+      return L.icon({
+        iconUrl: "/assets/plane.svg",
+        iconSize: [32, 32],
+      });
+    case "bus":
+      return L.icon({
+        iconUrl: "/assets/bus.svg",
+        iconSize: [32, 32],
+      });
+    default:
+      return L.icon({
+        iconUrl: "/assets/icon.png",
+        iconSize: [32, 32],
+      });
+  }
+};
+
+// File: src/components/map/mark.tsx
+"use client";
+
+import { EditIcon, Trash2 } from "lucide-react";
+import React from "react";
+import { Marker, Popup, Tooltip } from "react-leaflet";
+import { Modals } from "../modals";
+import { DeletePointModal } from "../modals/deletePointModal";
+import { PointForm } from "../forms/pointForm";
+import { postData } from "@/services/API";
+import { IPoint } from "@/types";
+import { getPointIcon } from "./PointIcon"; // Adjusted import
+import { useAppStore } from "@/store/store";
+import { useModal } from "@/store/useModal";
+
+export const Mark = ({
+  point,
+  setPointLabel,
+}: {
+  point: IPoint;
+  setPointLabel: React.Dispatch<React.SetStateAction<Partial<IPoint>>>;
+}) => {
+  const { getAllPoints } = useAppStore((state) => state);
+  const { setOpen } = useModal((state) => state);
+
+  const changeStatusHandler = (id: string) => {
+    postData("/api/points/change-status", { id }).then(() => {
+      getAllPoints();
+    });
+  };
+  return (
+    <Marker
+      key={point._id}
+      icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
+      position={[point.lat, point.lng]}
+      eventHandlers={{
+        mouseover: () => {
+          setPointLabel(point);
+        },
+        mouseout: () => {
+          setPointLabel({});
+        },
+      }}
+    >
+      <Tooltip direction="bottom" offset={[0, 10]} permanent>
+        {point.name}
+      </Tooltip>
+      <Popup>
+        <div className="flex w-full flex-col gap-1">
+          <span>name: {point.name}</span>
+          <span>lat: {point.lat}</span>
+          <span>lng: {point.lng}</span>
+          <span>frequency: {point.frequency}</span>
+          <span>status: {point.status}</span>
+
+          <div className="mt-2 flex w-full items-center justify-center gap-3">
+            <button
+              onClick={() =>
+                setOpen(
+                  <Modals title="edit point">
+                    <PointForm type="edit"></PointForm>
+                  </Modals>,
+                  { point },
+                )
+              }
+              className="cursor-pointer text-lg text-default-400 active:opacity-50"
+            >
+              <EditIcon />
+            </button>
+
+            <button
+              onClick={() =>
+                setOpen(<DeletePointModal data={point}></DeletePointModal>)
+              }
+              className="cursor-pointer text-lg text-danger active:opacity-50"
+            >
+              <Trash2 />
+            </button>
+
+            <button
+              onClick={() => changeStatusHandler(point._id)}
+              className="cursor-pointer text-lg text-warning active:opacity-50"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+                className="size-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
+
+// File: src/components/sidebar/SidebarPoint.tsx
+import React from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
+import { IPoint } from "@/types";
+import { putData } from "@/services/API";
+import { Chip } from "@nextui-org/react";
+import { statusColorMap } from "../map/Table";
+
+export const SidebarPoint = ({
+  points,
+  openSidebar,
+  getAllPoints,
+}: {
+  points: IPoint[];
+  openSidebar: boolean;
+  getAllPoints: () => void;
+}) => {
+  const changeStatusHandler = (id: string, data: Partial<IPoint>) => {
+    putData("/api/points", { id, ...data }).then(() => {
+      getAllPoints();
+    });
+  };
+  return (
+    <div className={`${openSidebar ? "" : "hidden"} my-5`}>
+      <Accordion type="single" collapsible>
+        {points.map((point) => (
+          <AccordionItem key={point._id} value={point._id}>
+            <AccordionTrigger className="my-1 h-10 rounded-xl bg-slate-100">
+              <div className="flex flex-row ">
+                <div className="ml-2 text-sm font-medium">{point.name}</div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="rounded-xl bg-slate-100">
+              <div className="flex  w-full flex-col text-lg">
+                <div className="flex h-10 items-center border-b-1">
+                  <div className="pl-2 text-sm">
+                    <span className="font-semibold">Lat: </span>
+                    {point.lat}
+                  </div>
+                  <div className="pl-2 text-sm">
+                    <span className="font-semibold">Lug: </span>
+                    {point.lng}
+                  </div>
+                </div>
+                <div className="flex h-10 items-center justify-between border-b-1 px-2">
+                  <div className="border-b-1 text-sm">
+                    <span className="font-semibold">connect: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          connect: !point.connect,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.connect ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.connect ? "connect" : "disconnect"}
+                      </Chip>
+                    </button>
+                  </div>
+                  <div className="pl-2 pr-20 text-sm">
+                    <span className="font-semibold">active: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          active: !point.active,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.active ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.active ? "active" : "disable"}
+                      </Chip>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex h-10 items-center justify-between border-b-1 px-2">
+                  <div className="border-b-1 text-sm">
+                    <span className="font-semibold">status: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          status: !point.status,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.status ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.status ? "active" : "disable"}
+                      </Chip>
+                    </button>
+                  </div>
+                  <div className="pl-2 pr-20 text-sm">
+                    <span className="font-semibold">Frequency: </span>
+                    {point.frequency}
+                  </div>
+                </div>
+                <div className="flex flex-row items-center pl-2 pt-2 text-sm">
+                  Degree:{" "}
+                  <svg
+                    width="20px"
+                    height="20px"
+                    viewBox="0 0 100 100"
+                    role="img"
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{ rotate: `${point.level}deg` }}
+                  >
+                    <path
+                      d="M50.03 5a2.516 2.516 0 0 0-2.43 1.76L34.493 48.548a2.51 2.51 0 0 0-.372 1.454c-.026.51.104 1.017.372 1.452l13.105 41.782c.737 2.352 4.065 2.352 4.802 0l13.105-41.785c.27-.436.399-.945.372-1.456a2.513 2.513 0 0 0-.372-1.45L52.401 6.76A2.513 2.513 0 0 0 50.03 5zM39.403 50.288h6.205c.152 2.306 2.048 4.134 4.392 4.134c2.344 0 4.24-1.828 4.392-4.134h6.461L50 84.078z"
+                      fill="#000000"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
+  );
+};
+
+// File: src/components/sidebar/Sidebar.tsx
+"use client";
+import React, { useState } from "react";
+import Image from "next/image";
+import { useModal } from "@/store/useModal";
+import { Modals } from "../modals";
+import { PointForm } from "../forms/pointForm";
+import { useAppStore } from "@/store/store";
+import { Eye, EyeOff, Menu } from "lucide-react";
+import { SidebarPoint } from "./SidebarPoint";
+
+export default function Sidebar() {
+  const setOpen = useModal((state) => state.setOpen);
+  const [openSidebar, setOpenSidebar] = useState(false);
+  const { showPointList, setShowPointList, points, getAllPoints } = useAppStore(
+    (state) => state,
+  );
+  return (
+    <div
+      className={`${openSidebar ? "min-w-96" : "min-w-16"} relative  transition-all duration-300`}
+    >
+      <div
+        className={`${openSidebar ? "min-w-96 p-5" : "min-w-16 p-2"} fixed bottom-0 flex h-full flex-col justify-between  gap-4 bg-indigo-100 pt-3 transition-all duration-300`}
+      >
+        <div>
+          <div
+            className={`${openSidebar ? "flex-row" : "flex-col-reverse gap-4"} flex  justify-between`}
+          >
+            <Image
+              src="/assets/logo.png"
+              width={0}
+              height={0}
+              sizes="100vw"
+              className={"w-10 object-cover"}
+              alt=""
+              priority
+            />
+            <button
+              onClick={() => setOpenSidebar(!openSidebar)}
+              className="flex size-10 items-center justify-center rounded-xl bg-indigo-200 text-indigo-600 "
+            >
+              <Menu></Menu>
+            </button>
+          </div>
+          <SidebarPoint
+            points={points}
+            openSidebar={openSidebar}
+            getAllPoints={getAllPoints}
+          ></SidebarPoint>
+        </div>
+        <div className="">
+          <button
+            onClick={() =>
+              setOpen(
+                <Modals title="add new point">
+                  <PointForm></PointForm>
+                </Modals>,
+              )
+            }
+            className={`${openSidebar ? "h-10 w-full px-4" : "size-10  justify-center"} my-3 flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className={`${openSidebar ? "size-6" : "size-5"}`}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+              />
+            </svg>
+
+            {openSidebar && <span>Add new point</span>}
+          </button>
+
+          <button
+            onClick={() => setShowPointList(!showPointList)}
+            className={`${openSidebar ? "h-10 w-full px-4" : "size-10  justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          >
+            {showPointList ? <EyeOff></EyeOff> : <Eye></Eye>}
+
+            {openSidebar && (
+              <span>
+                {showPointList ? "Hide points list" : "Show points list"}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// File: src/components/ui/checkbox.tsx
+/* eslint-disable react/prop-types */
+"use client";
+
+import * as React from "react";
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
+import { Check } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      "focus-visible:ring-ring peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      className,
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator
+      className={cn("flex items-center justify-center text-current")}
+    >
+      <Check className="size-4" />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
+));
+Checkbox.displayName = CheckboxPrimitive.Root.displayName;
+
+export { Checkbox };
+
+// File: src/components/ui/accordion.tsx
+/* eslint-disable react/prop-types */
+"use client";
+
+import * as React from "react";
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
+import { ChevronDown } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+const Accordion = AccordionPrimitive.Root;
+
+const AccordionItem = React.forwardRef<
+  React.ElementRef<typeof AccordionPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
+>(({ className, ...props }, ref) => (
+  <AccordionPrimitive.Item
+    ref={ref}
+    className={cn("border-b", className)}
+    {...props}
+  />
+));
+AccordionItem.displayName = "AccordionItem";
+
+const AccordionTrigger = React.forwardRef<
+  React.ElementRef<typeof AccordionPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <AccordionPrimitive.Header className="flex">
+    <AccordionPrimitive.Trigger
+      ref={ref}
+      className={cn(
+        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <ChevronDown className="size-4 shrink-0 transition-transform duration-200" />
+    </AccordionPrimitive.Trigger>
+  </AccordionPrimitive.Header>
+));
+AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName;
+
+const AccordionContent = React.forwardRef<
+  React.ElementRef<typeof AccordionPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <AccordionPrimitive.Content
+    ref={ref}
+    className="overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+    {...props}
+  >
+    <div className={cn("pb-4 pt-0", className)}>{children}</div>
+  </AccordionPrimitive.Content>
+));
+
+AccordionContent.displayName = AccordionPrimitive.Content.displayName;
+
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent };
+
+// File: src/components/ui/label.tsx
+"use client"
+
+import * as React from "react"
+import * as LabelPrimitive from "@radix-ui/react-label"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const labelVariants = cva(
+  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+)
+
+const Label = React.forwardRef<
+  React.ElementRef<typeof LabelPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> &
+    VariantProps<typeof labelVariants>
+>(({ className, ...props }, ref) => (
+  <LabelPrimitive.Root
+    ref={ref}
+    className={cn(labelVariants(), className)}
+    {...props}
+  />
+))
+Label.displayName = LabelPrimitive.Root.displayName
+
+export { Label }
+
+// File: src/components/forms/settingsForm.tsx
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Button, Input, ModalBody, ModalFooter } from "@nextui-org/react";
+import { useModal } from "@/store/useModal";
+import { postData } from "@/services/API";
+import { useAppStore } from "@/store/store";
+import { settingsObject } from "@/validator";
+export const SettingsForm = () => {
+  const { setIsLoading, isLoading, setClose } = useModal((state) => state);
+  const settings = useAppStore((state) => state.settings);
+  const {
+    register,
+    handleSubmit,
+    getValues,
+    formState: { errors },
+  } = useForm<z.infer<typeof settingsObject>>({
+    resolver: zodResolver(settingsObject),
+    mode: "onBlur",
+    defaultValues: {
+      lat_settings: settings?.lat || 35.694523130867424,
+      lng_settings: settings?.lng || 51.30922197948697,
+      zoom: settings?.zoom || 11,
+    },
+  });
+  const submitHandler = (data: z.infer<typeof settingsObject>) => {
+    setIsLoading(true);
+    postData("/api/settings", {
+      lat: data.lat_settings,
+      lng: data.lng_settings,
+      zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
+    })
+      .then(() => {
+        setIsLoading(false);
+        window.location.reload();
+      })
+      .catch(() => {
+        setIsLoading(false);
+      });
+  };
+  return (
+    <form
+      className="flex w-full flex-col gap-4"
+      onSubmit={handleSubmit((x) => submitHandler(x))}
+    >
+      <ModalBody>
+        <div className="flex w-full flex-col gap-4">
+          <Input
+            isRequired
+            label="Lat"
+            labelPlacement="outside"
+            placeholder="Enter point lat"
+            isInvalid={!!errors.lat_settings}
+            errorMessage={
+              errors.lat_settings ? errors.lat_settings.message : ""
+            }
+            {...register("lat_settings", {
+              required: true,
+              valueAsNumber: true,
+            })}
+          />
+
+          <Input
+            isRequired
+            label="Lng"
+            labelPlacement="outside"
+            placeholder="Enter point lng"
+            isInvalid={!!errors.lng_settings}
+            errorMessage={
+              errors.lng_settings ? errors.lng_settings.message : ""
+            }
+            {...register("lng_settings", {
+              required: true,
+              valueAsNumber: true,
+            })}
+          />
+
+          <Input
+            isRequired
+            label="Zoom"
+            labelPlacement="outside"
+            placeholder="Enter map zoom"
+            isInvalid={!!errors.zoom}
+            errorMessage={errors.zoom ? errors.zoom.message : ""}
+            {...register("zoom", { required: true, valueAsNumber: true })}
+          />
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <div className="flex w-full justify-center gap-4">
+          <Button
+            color="danger"
+            variant="light"
+            type="button"
+            onClick={() => setClose()}
+          >
+            Close
+          </Button>
+          <Button
+            isLoading={isLoading}
+            variant="shadow"
+            className="bg-green-600 text-white shadow-green-200"
+            type="submit"
+          >
+            Save
+          </Button>
+        </div>
+      </ModalFooter>
+    </form>
+  );
+};
+
+// File: src/components/forms/pointForm.tsx
+"use client";
+
+import { postData, putData } from "@/services/API";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { pointObject } from "@/validator";
+import {
+  Button,
+  Input,
+  ModalBody,
+  ModalFooter,
+  Select,
+  SelectItem,
+  Switch,
+} from "@nextui-org/react";
+import { useModal } from "@/store/useModal";
+import { useAppStore } from "@/store/store";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
+
+export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
+  const { data, setIsLoading, isLoading, setClose } = useModal(
+    (state) => state,
+  );
+  const getAllPoints = useAppStore((state) => state.getAllPoints);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<z.infer<typeof pointObject>>({
+    resolver: zodResolver(pointObject),
+
+    defaultValues: {
+      name: data.point?.name || "",
+      lat: data.point?.lat || 0,
+      lng: data.point?.lng || 0,
+      frequency: data.point?.frequency || 0,
+      iconType: data.point?.iconType || "car", // مقدار پیش‌فرض برای آیکون
+      active: data.point?.active || false,
+      connect: data.point?.connect || false,
+      status: data.point?.status || false,
+      level: data.point?.level || 0,
+    },
+  });
+
+  const submitHandler = (newPoint: z.infer<typeof pointObject>) => {
+    if (type == "edit") {
+      setIsLoading(true);
+      putData("/api/points/", {
+        ...newPoint,
+        id: data.point?._id,
+      }).then(() => {
+        setIsLoading(false);
+        getAllPoints();
+        reset({
+          name: "",
+          lat: 0,
+          lng: 0,
+          frequency: 0,
+          iconType: "car",
+        });
+        setClose();
+      });
+    } else {
+      setIsLoading(true);
+      postData("/api/points", { ...newPoint }).then(() => {
+        getAllPoints();
+        setIsLoading(false);
+
+        reset({
+          name: "",
+          lat: 0,
+          lng: 0,
+          frequency: 0,
+          iconType: "car",
+        });
+        setClose();
+      });
+    }
+  };
+
+  return (
+    <>
+      <form
+        className="flex w-full flex-col gap-4"
+        onSubmit={handleSubmit((x) => submitHandler(x))}
+      >
+        <ModalBody>
+          <Input
+            isRequired
+            label="Name"
+            className="text-lg font-semibold"
+            labelPlacement="outside"
+            placeholder="Enter point name"
+            isInvalid={!!errors.name}
+            errorMessage={errors.name ? errors.name.message : ""}
+            {...register("name", { required: true })}
+          />
+          <Input
+            isRequired
+            label="Lat"
+            className="text-lg font-semibold"
+            labelPlacement="outside"
+            placeholder="Enter point lat"
+            isInvalid={!!errors.lat}
+            errorMessage={errors.lat ? errors.lat.message : ""}
+            {...register("lat", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="Lng"
+            className="text-lg font-semibold"
+            labelPlacement="outside"
+            placeholder="Enter point lng"
+            isInvalid={!!errors.lng}
+            errorMessage={errors.lng ? errors.lng.message : ""}
+            {...register("lng", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="Frequency"
+            className="text-lg font-semibold"
+            labelPlacement="outside"
+            placeholder="Enter point frequency"
+            isInvalid={!!errors.frequency}
+            errorMessage={errors.frequency ? errors.frequency.message : ""}
+            {...register("frequency", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="Level"
+            labelPlacement="outside"
+            className="text-lg font-semibold"
+            placeholder="Enter point Level"
+            isInvalid={!!errors.level}
+            errorMessage={errors.level ? errors.level.message : ""}
+            {...register("level", { required: true })}
+          />
+
+          {/* Select for Icon Type */}
+          <Select
+            label="Choose Icon"
+            placeholder="Select an icon"
+            className="text-lg font-semibold "
+            isRequired
+            isInvalid={!!errors.iconType}
+            errorMessage={errors.iconType ? errors.iconType.message : ""}
+            {...register("iconType", { required: true })}
+          >
+            <SelectItem key="car" value="car">
+              Car
+            </SelectItem>
+            <SelectItem key="plane" value="plane">
+              Plane
+            </SelectItem>
+            <SelectItem key="bus" value="bus">
+              Bus
+            </SelectItem>
+            <SelectItem key="human" value="human">
+              human
+            </SelectItem>
+            <SelectItem key="helicopter" value="helicopter">
+              helicopter
+            </SelectItem>
+            <SelectItem key="train" value="train">
+              train
+            </SelectItem>
+          </Select>
+          <div className="flex items-center  gap-2">
+            <Label htmlFor="status" className="text-sm font-semibold">
+              status:
+            </Label>
+            <Switch
+              id="status"
+              {...register("status", { required: true })}
+            ></Switch>
+          </div>
+
+          <div className="flex items-center  gap-2">
+            <Label htmlFor="active" className="text-sm font-semibold">
+              active:
+            </Label>
+            <Switch
+              id="active"
+              {...register("active", { required: true })}
+            ></Switch>
+          </div>
+          <div className="flex items-center  gap-2">
+            <Label htmlFor="connect" className="text-sm font-semibold">
+              connect:
+            </Label>
+            <Switch
+              id="connect"
+              {...register("connect", { required: true })}
+            ></Switch>
+          </div>
+        </ModalBody>
+
+        <ModalFooter>
+          <div className="flex w-full justify-center gap-4">
+            <Button
+              color="danger"
+              variant="light"
+              type="button"
+              onClick={() => setClose()}
+            >
+              Close
+            </Button>
+            <Button
+              isLoading={isLoading}
+              variant="shadow"
+              className="bg-green-600 text-white shadow-green-200"
+              type="submit"
+            >
+              {type === "edit" ? "Edit Point" : "Add Point"}
+            </Button>
+          </div>
+        </ModalFooter>
+      </form>
+    </>
+  );
+};
+
+// File: src/services/API.ts
+import axios from "axios";
+
+const servicesApi = axios.create({
+  withCredentials: false,
+  timeout: 60000,
+  headers: {
+    common: {
+      Accept: "application/json",
+    },
+  },
+});
+
+export const postData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.post(param, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.post(param, data);
+};
+export const putData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.put(param, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.put(param, data); // Use PUT instead of POST
+};
+
+export const getData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.get(param, {
+      params: data,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+  return servicesApi.get(param, { params: data });
+};
+
+export const deleteData = async (
+  param: string,
+  data: any,
+  withToken: boolean = false,
+) => {
+  if (withToken) {
+    const token = localStorage.getItem("token");
+    return servicesApi.delete(param, {
+      headers: { Authorization: `Bearer ${token}` },
+      data,
+    });
+  }
+  return servicesApi.delete(param, { data });
+};
+
+// File: src/lib/utils.ts
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// File: src/providers/ModalProvider.tsx
+"use client";
+import React from "react";
+import { useModal } from "@/store/useModal";
+
+export const ModalProvider = () => {
+  const Model = useModal((state) => state.modal);
+  return <>{Model}</>;
+};
+
+// File: models/PolygonModel.ts
+import mongoose from "mongoose";
+
+const polygonSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  points: [{ lat: Number, lng: Number }], // Array of polygon vertices
+  flag: { type: Number, default: 1 }, // 0 (hide) or 1 (show)
+  isPolygon: { type: Boolean, default: true }, // True for polygons
+  date: { type: Date, default: Date.now },
+  deletedAt: { type: mongoose.Schema.Types.Mixed, default: null },
+});
+const PolygonsModel =
+  mongoose.models.Polygons || mongoose.model("Polygons", polygonSchema);
+
+export default PolygonsModel;
+
+// File: models/LineModel.ts
+// models/LineModel.ts
+import mongoose from "mongoose";
+
+// تعریف اسکیمای خط
+const lineSchema = new mongoose.Schema({
+  startPoint: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  endPoint: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  length: { type: Number, required: true }, // طول خط
+  angle: { type: Number, required: true }, // زاویه خط
+  createdAt: { type: Date, default: Date.now }, // تاریخ ایجاد خط
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // کاربری که خط را ایجاد کرده است (اختیاری)
+  deletedAt: { type: Date, default: null }, // تاریخ حذف (برای حذف نرم)
+});
+
+// ایجاد مدل خط با استفاده از اسکیمای تعریف‌شده
+const LineModel = mongoose.models.Lines || mongoose.model("Lines", lineSchema);
+
+export default LineModel;
+
+// File: models/DFModels.ts
+import mongoose from "mongoose";
+
+const DFSchema = new mongoose.Schema(
+  {
+    bRunState: { type: Boolean, default: false }, // true -> DF, false -> Stop
+    bWideband: { type: Boolean, default: false }, // true -> Wideband, false -> Narrowband
+    dFrequencyRF: { type: Number, required: true }, // RF Frequency
+    dFrequencyStartScan: { type: Number, required: true }, // Start frequency of the scan
+    dFrequencyStopScan: { type: Number, required: true }, // Stop frequency of the scan
+    dBandwidthIF: { type: Number, required: true }, // Intermediate Frequency Bandwidth in MHz
+    dBandwidthDF: { type: Number, required: true }, // DF Bandwidth
+    bNormalModeDF: { type: Boolean, default: false }, // true -> Normal, false -> Continues
+    bNormalModeDFMode: {
+      type: String,
+      enum: ["Normal", "Continues"],
+      default: "Normal",
+    }, // ModeDF enum
+    dThresholdLevelDF: { type: Number }, // DF Threshold Level
+    dThresholdQualityDF: { type: Number }, // DF Threshold Quality
+    iAverageTimeDF: { type: Number }, // Average time in milliseconds
+    bPreAmplifierRF: { type: Boolean, default: false }, // Pre-Amplifier RF status
+    bPreAmplifierRFMode: { type: String, enum: ["OFF", "ON"], default: "OFF" }, // PreAmplifierRF enum
+    bLongAntennaRF: { type: Boolean, default: false }, // Antenna RF status
+    bLongAntennaRFMode: {
+      type: String,
+      enum: ["Short", "Long"],
+      default: "Short",
+    }, // AntennaRF enum
+    iTunerModeRF: { type: Number }, // Tuner Mode RF
+    iGainRF: { type: Number }, // Gain for RF
+    bAutoGainIF: { type: String, enum: ["MGC", "AGC"], default: "MGC" }, // GainIF enum
+    iManualGainIF: { type: Number }, // Manual Gain in dBm
+    iAutoGainCtrlTime: { type: Number }, // Auto Gain Control time in milliseconds
+    dMaxGainAgc: { type: Number }, // Max gain for AGC in dBm
+    bAFC: { type: Boolean, default: false }, // AFC status
+    bAFCMode: { type: String, enum: ["ON", "OFF"], default: "OFF" }, // AFC enum
+    bVoiceState: { type: Boolean, default: false }, // Voice state
+    bSquelchState: { type: Boolean, default: false }, // Squelch state
+    bStateDenoising: { type: Boolean, default: false }, // Denoising state
+    strDemodulation: { type: String, default: "AM" }, // Demodulation type (AM, FM, etc.)
+    dBandwidthVoice: { type: Number }, // Voice bandwidth in KHz
+    iBeatFreqOffset: { type: Number }, // Beat frequency offset in Hz
+    dGainVoice: { type: Number }, // Gain for voice in dBm
+    bClassifier: { type: Boolean, default: false }, // Classifier state
+    iTimeHistoryCL: { type: Number }, // Time history for classifier in milliseconds
+  },
+  { timestamps: true },
+);
+
+const DF = mongoose.model("DF", DFSchema);
+module.exports = DF;
+
+// File: models/SettingsModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  lat: { type: Number, required: true, default: 35.694523130867424 },
+  lng: { type: Number, required: true, default: 51.30922197948697 },
+  zoom: { type: Number, required: true, default: 13 },
+});
+
+const SettingsModel =
+  mongoose.models.SettingsModel || mongoose.model("SettingsModel", schema);
+
+export default SettingsModel;
+
+// File: models/pointsModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  lat: {
+    type: Number,
+    required: true,
+  },
+  lng: {
+    type: Number,
+    required: true,
+  },
+  frequency: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: Boolean,
+    default: false,
+  },
+  active: {
+    type: Boolean,
+    default: false,
+  },
+  connect: {
+    type: Boolean,
+    default: false,
+  },
+  level: {
+    type: Number,
+    required: true,
+  },
+  date: {
+    type: Date,
+    default: () => Date.now(),
+  },
+  iconType: {
+    type: String,
+  },
+  deletedAt: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+});
+
+const PointsModel = mongoose.models.Points || mongoose.model("Points", schema);
+
+export default PointsModel;
+
+// File: models/targetModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  dFrequency: { type: Number, required: true }, // Target frequency
+  dAzimuth: { type: Number, required: true }, // Azimuth angle
+  dLevel: { type: Number, required: true }, // Signal level
+  dQuality: { type: Number, required: true, min: 0, max: 100 }, // Signal quality (0 to 100)
+});
+
+const TargetModel = mongoose.models.Target || mongoose.model("Target", schema);
+
+export default TargetModel;
+
+// File: configs/db.ts
+import mongoose from "mongoose";
+
+let isConnected = false; // Track the database connection status
+
+export const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
+  try {
+    if (!mongoose.connections[0].readyState) {
+      await mongoose.connect(process.env.MONGO_URL!);
+      isConnected = true;
+      console.log("Database connected");
+    }
+  } catch (err) {
+    console.error("Database connection error:", err);
+    throw err; // Ensure error bubbles up
+  }
+};
+

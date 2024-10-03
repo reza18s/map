@@ -136,7 +136,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             placeholder="Enter point Level"
             isInvalid={!!errors.level}
             errorMessage={errors.level ? errors.level.message : ""}
-            {...register("level", { required: true })}
+            {...register("level", { required: true, valueAsNumber: true })}
           />
 
           {/* Select for Icon Type */}

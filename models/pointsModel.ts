@@ -40,6 +40,8 @@ const schema = new mongoose.Schema({
   iconType: {
     type: String,
   },
+  workerStatus: { type: String, default: "inactive" }, // Tracks worker status
+  receivedData: { type: Array, default: [] },
   deletedAt: {
     type: mongoose.Schema.Types.Mixed,
     default: null,

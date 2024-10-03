@@ -1,7 +1,7 @@
 "use client";
 
 import { EditIcon, Trash2 } from "lucide-react";
-import React from "react";
+import React, { useEffect } from "react";
 import { Marker, Popup, Tooltip } from "react-leaflet";
 import { Modals } from "../modals";
 import { DeletePointModal } from "../modals/deletePointModal";
@@ -11,6 +11,7 @@ import { IPoint } from "@/types";
 import { getPointIcon } from "./PointIcon"; // Adjusted import
 import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
+import { startPointWorker } from "@/helper/workerManager";
 
 export const Mark = ({
   point,
@@ -27,6 +28,12 @@ export const Mark = ({
       getAllPoints();
     });
   };
+  useEffect(() => {
+    if (point.connect) {
+      console.log("..");
+      startPointWorker(point._id, point.frequency);
+    }
+  }, [point.connect]);
   return (
     <Marker
       key={point._id}

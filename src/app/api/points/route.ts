@@ -1,4 +1,5 @@
 import { connectDB } from "@/configs/db";
+import { startPointWorker } from "@/helper/workerManager";
 import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
