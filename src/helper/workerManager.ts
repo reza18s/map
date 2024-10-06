@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use server";
 import { Worker } from "worker_threads";
 import PointsModel from "@/models/pointsModel";

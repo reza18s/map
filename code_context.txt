@@ -183,6 +183,7 @@ export async function GET() {
 
 // File: src/app/api/points/route.ts
 import { connectDB } from "@/configs/db";
+import { startPointWorker } from "@/helper/workerManager";
 import PointsModel from "@/models/pointsModel";
 import { NextResponse } from "next/server";
 
@@ -498,6 +499,30 @@ export const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
   const angle = (Math.atan2(Δφ, Δλ) * 180) / Math.PI; // Angle in degrees
   return angle;
 };
+
+// File: src/helper/clientWorker.js
+"use server";
+import { parentPort, workerData } from "worker_threads";
+import { io } from "socket.io-client";
+
+const { url, clientId, data } = workerData;
+
+const socket = io(url);
+console.log("clint");
+socket.on("connect", () => {
+  console.log(`Connected to server at ${url}`);
+  socket.emit("initial_data", { clientId, data });
+});
+
+socket.on("data_packet", (data) => {
+  console.log(`Received data from ${url}:`, data);
+  parentPort?.postMessage({ status: "data", data });
+});
+
+socket.on("error", (err) => {
+  console.error(`Socket error on ${url}:`, err);
+  parentPort?.postMessage({ status: "error", error: err });
+});
 
 // File: src/helper/draw.ts
 /* eslint-disable no-console */
@@ -841,6 +866,86 @@ export const controlSaveTiles = ({
     setProgress(progress);
   });
 };
+
+// File: src/helper/workerManager.ts
+"use server";
+import { Worker } from "worker_threads";
+import PointsModel from "@/models/pointsModel";
+import { connectDB } from "@/configs/db";
+
+// Map to keep track of running workers
+const workersMap = new Map();
+
+// Function to start a worker for a given point
+const startPointWorker = async (pointId: string, frequency: number) => {
+  // Check if the worker for the point is already running
+  if (workersMap.has(pointId)) {
+    console.log(`Worker for point ${pointId} is already running.`);
+    return; // Exit the function if the worker is already running
+  }
+
+  connectDB();
+  const point = await PointsModel.findById(pointId);
+  if (!point) {
+    throw new Error("Point not found");
+  }
+
+  const url = `http://localhost:${frequency === 5001 ? 5001 : 5000}`;
+  const clientId = Math.random().toString(36).substr(2, 9);
+
+  const worker = new Worker("./src/helper/clientWorker.js", {
+    workerData: { url, clientId, data: ["frequency"] },
+  });
+
+  workersMap.set(pointId, worker); // Store worker in the map
+
+  worker.on("message", async (msg) => {
+    if (msg.status === "data") {
+      console.log(`Received data from worker for ${point.name}:`, msg.data);
+      await PointsModel.findByIdAndUpdate(pointId, {
+        $set: { workerStatus: "active", receivedData: msg.data },
+      });
+    } else if (msg.status === "error") {
+      console.error(`Worker error for ${point.name}`);
+      await PointsModel.findByIdAndUpdate(pointId, {
+        $set: { workerStatus: "error" },
+      });
+    }
+  });
+
+  worker.on("exit", async (code) => {
+    workersMap.delete(pointId); // Remove the worker from the map
+    if (code !== 0) {
+      console.error(`Worker for ${point.name} exited with code ${code}`);
+      await PointsModel.findByIdAndUpdate(pointId, {
+        $set: { workerStatus: "error" },
+      });
+    } else {
+      await PointsModel.findByIdAndUpdate(pointId, {
+        $set: { workerStatus: "inactive" },
+      });
+    }
+  });
+};
+
+// Function to shut down a worker for a given point
+const shutdownWorker = async (pointId: string) => {
+  const worker = workersMap.get(pointId);
+  if (!worker) {
+    throw new Error("Worker not found for this point");
+  }
+
+  worker.terminate(); // Gracefully terminate the worker
+  workersMap.delete(pointId); // Remove the worker from the map
+
+  await PointsModel.findByIdAndUpdate(pointId, {
+    $set: { workerStatus: "inactive" },
+  });
+
+  console.log(`Worker for point ${pointId} has been shut down`);
+};
+
+export { startPointWorker, shutdownWorker };
 
 // File: src/helper/helper.ts
 export const dateFormatter = (
@@ -2173,7 +2278,7 @@ export const getPointIcon = (iconType: string) => {
 "use client";
 
 import { EditIcon, Trash2 } from "lucide-react";
-import React from "react";
+import React, { useEffect } from "react";
 import { Marker, Popup, Tooltip } from "react-leaflet";
 import { Modals } from "../modals";
 import { DeletePointModal } from "../modals/deletePointModal";
@@ -2183,6 +2288,7 @@ import { IPoint } from "@/types";
 import { getPointIcon } from "./PointIcon"; // Adjusted import
 import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
+import { startPointWorker } from "@/helper/workerManager";
 
 export const Mark = ({
   point,
@@ -2199,6 +2305,11 @@ export const Mark = ({
       getAllPoints();
     });
   };
+  useEffect(() => {
+    if (point.connect) {
+      startPointWorker(point._id, point.frequency);
+    }
+  }, [point.connect]);
   return (
     <Marker
       key={point._id}
@@ -2286,6 +2397,7 @@ import { IPoint } from "@/types";
 import { putData } from "@/services/API";
 import { Chip } from "@nextui-org/react";
 import { statusColorMap } from "../map/Table";
+import { shutdownWorker } from "@/helper/workerManager";
 
 export const SidebarPoint = ({
   points,
@@ -2297,6 +2409,10 @@ export const SidebarPoint = ({
   getAllPoints: () => void;
 }) => {
   const changeStatusHandler = (id: string, data: Partial<IPoint>) => {
+    if (!data.connect) {
+      console.log("ooo");
+      shutdownWorker(id);
+    }
     putData("/api/points", { id, ...data }).then(() => {
       getAllPoints();
     });
@@ -2308,67 +2424,20 @@ export const SidebarPoint = ({
           <AccordionItem key={point._id} value={point._id}>
             <AccordionTrigger className="my-1 h-10 rounded-xl bg-slate-100">
               <div className="flex flex-row ">
-                <div className="ml-2 text-sm font-medium">{point.name}</div>
+                <div className="ml-2 text-sm font-medium">
+                  name: {point.name}
+                </div>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="rounded-xl bg-slate-100">
-              <div className="flex  w-full flex-col text-lg">
-                <div className="flex h-10 items-center border-b-1">
-                  <div className="pl-2 text-sm">
+            <AccordionContent className="rounded-xl bg-slate-100 pb-0">
+              <div className="flex w-full flex-col text-lg">
+                <div className="flex h-12 items-center border-b-1">
+                  <div className="flex flex-col pl-2 text-sm">
                     <span className="font-semibold">Lat: </span>
                     {point.lat}
                   </div>
-                  <div className="pl-2 text-sm">
-                    <span className="font-semibold">Lug: </span>
-                    {point.lng}
-                  </div>
-                </div>
-                <div className="flex h-10 items-center justify-between border-b-1 px-2">
-                  <div className="border-b-1 text-sm">
-                    <span className="font-semibold">connect: </span>
-                    <button
-                      onClick={() =>
-                        changeStatusHandler(point._id, {
-                          connect: !point.connect,
-                        })
-                      }
-                    >
-                      <Chip
-                        className="capitalize"
-                        color={
-                          statusColorMap[point.connect ? "active" : "disable"]
-                        }
-                        size="sm"
-                        variant="flat"
-                      >
-                        {point.connect ? "connect" : "disconnect"}
-                      </Chip>
-                    </button>
-                  </div>
-                  <div className="pl-2 pr-20 text-sm">
-                    <span className="font-semibold">active: </span>
-                    <button
-                      onClick={() =>
-                        changeStatusHandler(point._id, {
-                          active: !point.active,
-                        })
-                      }
-                    >
-                      <Chip
-                        className="capitalize"
-                        color={
-                          statusColorMap[point.active ? "active" : "disable"]
-                        }
-                        size="sm"
-                        variant="flat"
-                      >
-                        {point.active ? "active" : "disable"}
-                      </Chip>
-                    </button>
-                  </div>
-                </div>
-                <div className="flex h-10 items-center justify-between border-b-1 px-2">
-                  <div className="border-b-1 text-sm">
+
+                  <div className="px-2 text-sm">
                     <span className="font-semibold">status: </span>
                     <button
                       onClick={() =>
@@ -2389,26 +2458,85 @@ export const SidebarPoint = ({
                       </Chip>
                     </button>
                   </div>
-                  <div className="pl-2 pr-20 text-sm">
+                  <div className="flex flex-row items-center  text-sm">
+                    Degree:{" "}
+                    <svg
+                      width="20px"
+                      height="20px"
+                      viewBox="0 0 100 100"
+                      role="img"
+                      preserveAspectRatio="xMidYMid meet"
+                      style={{ rotate: `${point.level}deg` }}
+                    >
+                      <circle
+                        r="45"
+                        cx="50"
+                        cy="50"
+                        className="fill-transparent"
+                        stroke="black"
+                        strokeWidth="5"
+                      ></circle>
+                      <path
+                        d="M50.03 5a2.516 2.516 0 0 0-2.43 1.76L34.493 48.548a2.51 2.51 0 0 0-.372 1.454c-.026.51.104 1.017.372 1.452l13.105 41.782c.737 2.352 4.065 2.352 4.802 0l13.105-41.785c.27-.436.399-.945.372-1.456a2.513 2.513 0 0 0-.372-1.45L52.401 6.76A2.513 2.513 0 0 0 50.03 5zM39.403 50.288h6.205c.152 2.306 2.048 4.134 4.392 4.134c2.344 0 4.24-1.828 4.392-4.134h6.461L50 84.078z"
+                        fill="#000000"
+                      ></path>
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="flex h-10 items-center border-b-1">
+                  <div className="flex flex-col pl-2 text-sm">
+                    <span className="font-semibold">Lng: </span>
+                    <span>{point.lng}</span>
+                  </div>
+                  <div className="px-2 text-sm">
+                    <span className="font-semibold">connect: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          connect: !point.connect,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.connect ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.connect ? "connect" : "disconnect"}
+                      </Chip>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex h-10 items-center gap-4 px-2">
+                  <div className="pr-2 text-sm">
                     <span className="font-semibold">Frequency: </span>
                     {point.frequency}
                   </div>
-                </div>
-                <div className="flex flex-row items-center pl-2 pt-2 text-sm">
-                  Degree:{" "}
-                  <svg
-                    width="20px"
-                    height="20px"
-                    viewBox="0 0 100 100"
-                    role="img"
-                    preserveAspectRatio="xMidYMid meet"
-                    style={{ rotate: `${point.level}deg` }}
-                  >
-                    <path
-                      d="M50.03 5a2.516 2.516 0 0 0-2.43 1.76L34.493 48.548a2.51 2.51 0 0 0-.372 1.454c-.026.51.104 1.017.372 1.452l13.105 41.782c.737 2.352 4.065 2.352 4.802 0l13.105-41.785c.27-.436.399-.945.372-1.456a2.513 2.513 0 0 0-.372-1.45L52.401 6.76A2.513 2.513 0 0 0 50.03 5zM39.403 50.288h6.205c.152 2.306 2.048 4.134 4.392 4.134c2.344 0 4.24-1.828 4.392-4.134h6.461L50 84.078z"
-                      fill="#000000"
-                    ></path>
-                  </svg>
+                  <div className="pl-2 text-sm">
+                    <span className="font-semibold">active: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          active: !point.active,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.active ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.active ? "active" : "disable"}
+                      </Chip>
+                    </button>
+                  </div>
                 </div>
               </div>
             </AccordionContent>
@@ -2897,7 +3025,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             placeholder="Enter point Level"
             isInvalid={!!errors.level}
             errorMessage={errors.level ? errors.level.message : ""}
-            {...register("level", { required: true })}
+            {...register("level", { required: true, valueAsNumber: true })}
           />
 
           {/* Select for Icon Type */}
@@ -3069,202 +3197,5 @@ import { useModal } from "@/store/useModal";
 export const ModalProvider = () => {
   const Model = useModal((state) => state.modal);
   return <>{Model}</>;
-};
-
-// File: models/PolygonModel.ts
-import mongoose from "mongoose";
-
-const polygonSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  points: [{ lat: Number, lng: Number }], // Array of polygon vertices
-  flag: { type: Number, default: 1 }, // 0 (hide) or 1 (show)
-  isPolygon: { type: Boolean, default: true }, // True for polygons
-  date: { type: Date, default: Date.now },
-  deletedAt: { type: mongoose.Schema.Types.Mixed, default: null },
-});
-const PolygonsModel =
-  mongoose.models.Polygons || mongoose.model("Polygons", polygonSchema);
-
-export default PolygonsModel;
-
-// File: models/LineModel.ts
-// models/LineModel.ts
-import mongoose from "mongoose";
-
-// تعریف اسکیمای خط
-const lineSchema = new mongoose.Schema({
-  startPoint: {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true },
-  },
-  endPoint: {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true },
-  },
-  length: { type: Number, required: true }, // طول خط
-  angle: { type: Number, required: true }, // زاویه خط
-  createdAt: { type: Date, default: Date.now }, // تاریخ ایجاد خط
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // کاربری که خط را ایجاد کرده است (اختیاری)
-  deletedAt: { type: Date, default: null }, // تاریخ حذف (برای حذف نرم)
-});
-
-// ایجاد مدل خط با استفاده از اسکیمای تعریف‌شده
-const LineModel = mongoose.models.Lines || mongoose.model("Lines", lineSchema);
-
-export default LineModel;
-
-// File: models/DFModels.ts
-import mongoose from "mongoose";
-
-const DFSchema = new mongoose.Schema(
-  {
-    bRunState: { type: Boolean, default: false }, // true -> DF, false -> Stop
-    bWideband: { type: Boolean, default: false }, // true -> Wideband, false -> Narrowband
-    dFrequencyRF: { type: Number, required: true }, // RF Frequency
-    dFrequencyStartScan: { type: Number, required: true }, // Start frequency of the scan
-    dFrequencyStopScan: { type: Number, required: true }, // Stop frequency of the scan
-    dBandwidthIF: { type: Number, required: true }, // Intermediate Frequency Bandwidth in MHz
-    dBandwidthDF: { type: Number, required: true }, // DF Bandwidth
-    bNormalModeDF: { type: Boolean, default: false }, // true -> Normal, false -> Continues
-    bNormalModeDFMode: {
-      type: String,
-      enum: ["Normal", "Continues"],
-      default: "Normal",
-    }, // ModeDF enum
-    dThresholdLevelDF: { type: Number }, // DF Threshold Level
-    dThresholdQualityDF: { type: Number }, // DF Threshold Quality
-    iAverageTimeDF: { type: Number }, // Average time in milliseconds
-    bPreAmplifierRF: { type: Boolean, default: false }, // Pre-Amplifier RF status
-    bPreAmplifierRFMode: { type: String, enum: ["OFF", "ON"], default: "OFF" }, // PreAmplifierRF enum
-    bLongAntennaRF: { type: Boolean, default: false }, // Antenna RF status
-    bLongAntennaRFMode: {
-      type: String,
-      enum: ["Short", "Long"],
-      default: "Short",
-    }, // AntennaRF enum
-    iTunerModeRF: { type: Number }, // Tuner Mode RF
-    iGainRF: { type: Number }, // Gain for RF
-    bAutoGainIF: { type: String, enum: ["MGC", "AGC"], default: "MGC" }, // GainIF enum
-    iManualGainIF: { type: Number }, // Manual Gain in dBm
-    iAutoGainCtrlTime: { type: Number }, // Auto Gain Control time in milliseconds
-    dMaxGainAgc: { type: Number }, // Max gain for AGC in dBm
-    bAFC: { type: Boolean, default: false }, // AFC status
-    bAFCMode: { type: String, enum: ["ON", "OFF"], default: "OFF" }, // AFC enum
-    bVoiceState: { type: Boolean, default: false }, // Voice state
-    bSquelchState: { type: Boolean, default: false }, // Squelch state
-    bStateDenoising: { type: Boolean, default: false }, // Denoising state
-    strDemodulation: { type: String, default: "AM" }, // Demodulation type (AM, FM, etc.)
-    dBandwidthVoice: { type: Number }, // Voice bandwidth in KHz
-    iBeatFreqOffset: { type: Number }, // Beat frequency offset in Hz
-    dGainVoice: { type: Number }, // Gain for voice in dBm
-    bClassifier: { type: Boolean, default: false }, // Classifier state
-    iTimeHistoryCL: { type: Number }, // Time history for classifier in milliseconds
-  },
-  { timestamps: true },
-);
-
-const DF = mongoose.model("DF", DFSchema);
-module.exports = DF;
-
-// File: models/SettingsModel.ts
-import mongoose from "mongoose";
-
-const schema = new mongoose.Schema({
-  lat: { type: Number, required: true, default: 35.694523130867424 },
-  lng: { type: Number, required: true, default: 51.30922197948697 },
-  zoom: { type: Number, required: true, default: 13 },
-});
-
-const SettingsModel =
-  mongoose.models.SettingsModel || mongoose.model("SettingsModel", schema);
-
-export default SettingsModel;
-
-// File: models/pointsModel.ts
-import mongoose from "mongoose";
-
-const schema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-  },
-  lat: {
-    type: Number,
-    required: true,
-  },
-  lng: {
-    type: Number,
-    required: true,
-  },
-  frequency: {
-    type: Number,
-    required: true,
-  },
-  status: {
-    type: Boolean,
-    default: false,
-  },
-  active: {
-    type: Boolean,
-    default: false,
-  },
-  connect: {
-    type: Boolean,
-    default: false,
-  },
-  level: {
-    type: Number,
-    required: true,
-  },
-  date: {
-    type: Date,
-    default: () => Date.now(),
-  },
-  iconType: {
-    type: String,
-  },
-  deletedAt: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null,
-  },
-});
-
-const PointsModel = mongoose.models.Points || mongoose.model("Points", schema);
-
-export default PointsModel;
-
-// File: models/targetModel.ts
-import mongoose from "mongoose";
-
-const schema = new mongoose.Schema({
-  dFrequency: { type: Number, required: true }, // Target frequency
-  dAzimuth: { type: Number, required: true }, // Azimuth angle
-  dLevel: { type: Number, required: true }, // Signal level
-  dQuality: { type: Number, required: true, min: 0, max: 100 }, // Signal quality (0 to 100)
-});
-
-const TargetModel = mongoose.models.Target || mongoose.model("Target", schema);
-
-export default TargetModel;
-
-// File: configs/db.ts
-import mongoose from "mongoose";
-
-let isConnected = false; // Track the database connection status
-
-export const connectDB = async () => {
-  if (isConnected) {
-    return;
-  }
-  try {
-    if (!mongoose.connections[0].readyState) {
-      await mongoose.connect(process.env.MONGO_URL!);
-      isConnected = true;
-      console.log("Database connected");
-    }
-  } catch (err) {
-    console.error("Database connection error:", err);
-    throw err; // Ensure error bubbles up
-  }
 };
 

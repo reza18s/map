@@ -16,7 +16,7 @@ export default function Sidebar() {
   );
   return (
     <div
-      className={`${openSidebar ? "min-w-96" : "min-w-16"} relative  transition-all duration-300`}
+      className={`${openSidebar ? "min-w-96" : "min-w-16"} relative  overflow-y-scroll transition-all duration-300`}
     >
       <div
         className={`${openSidebar ? "min-w-96 p-5" : "min-w-16 p-2"} fixed bottom-0 flex h-full flex-col justify-between  gap-4 bg-indigo-100 pt-3 transition-all duration-300`}
