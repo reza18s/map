@@ -11,7 +11,7 @@ import { IPoint } from "@/types";
 import { getPointIcon } from "./PointIcon"; // Adjusted import
 import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
-import { startPointWorker } from "@/helper/workerManager";
+import { shutdownWorker, startPointWorker } from "@/helper/workerManager";
 
 export const Mark = ({
   point,
@@ -24,13 +24,15 @@ export const Mark = ({
   const { setOpen } = useModal((state) => state);
 
   const changeStatusHandler = (id: string) => {
+    if (point.connect) {
+      shutdownWorker(id);
+    }
     postData("/api/points/change-status", { id }).then(() => {
       getAllPoints();
     });
   };
   useEffect(() => {
     if (point.connect) {
-      console.log("..");
       startPointWorker(point._id, point.frequency);
     }
   }, [point.connect]);

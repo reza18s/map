@@ -3,8 +3,17 @@ import { Worker } from "worker_threads";
 import PointsModel from "@/models/pointsModel";
 import { connectDB } from "@/configs/db";
 
+// Map to keep track of running workers
+const workersMap = new Map();
+
 // Function to start a worker for a given point
 const startPointWorker = async (pointId: string, frequency: number) => {
+  // Check if the worker for the point is already running
+  if (workersMap.has(pointId)) {
+    console.log(`Worker for point ${pointId} is already running.`);
+    return; // Exit the function if the worker is already running
+  }
+
   connectDB();
   const point = await PointsModel.findById(pointId);
   if (!point) {
@@ -17,6 +26,8 @@ const startPointWorker = async (pointId: string, frequency: number) => {
   const worker = new Worker("./src/helper/clientWorker.js", {
     workerData: { url, clientId, data: ["frequency"] },
   });
+
+  workersMap.set(pointId, worker); // Store worker in the map
 
   worker.on("message", async (msg) => {
     if (msg.status === "data") {
@@ -33,6 +44,7 @@ const startPointWorker = async (pointId: string, frequency: number) => {
   });
 
   worker.on("exit", async (code) => {
+    workersMap.delete(pointId); // Remove the worker from the map
     if (code !== 0) {
       console.error(`Worker for ${point.name} exited with code ${code}`);
       await PointsModel.findByIdAndUpdate(pointId, {
@@ -46,4 +58,21 @@ const startPointWorker = async (pointId: string, frequency: number) => {
   });
 };
 
-export { startPointWorker };
+// Function to shut down a worker for a given point
+const shutdownWorker = async (pointId: string) => {
+  const worker = workersMap.get(pointId);
+  if (!worker) {
+    throw new Error("Worker not found for this point");
+  }
+
+  worker.terminate(); // Gracefully terminate the worker
+  workersMap.delete(pointId); // Remove the worker from the map
+
+  await PointsModel.findByIdAndUpdate(pointId, {
+    $set: { workerStatus: "inactive" },
+  });
+
+  console.log(`Worker for point ${pointId} has been shut down`);
+};
+
+export { startPointWorker, shutdownWorker };
