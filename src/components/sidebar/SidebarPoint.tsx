@@ -9,6 +9,7 @@ import { IPoint } from "@/types";
 import { putData } from "@/services/API";
 import { Chip } from "@nextui-org/react";
 import { statusColorMap } from "../map/Table";
+import { shutdownWorker } from "@/helper/workerManager";
 
 export const SidebarPoint = ({
   points,
@@ -20,6 +21,10 @@ export const SidebarPoint = ({
   getAllPoints: () => void;
 }) => {
   const changeStatusHandler = (id: string, data: Partial<IPoint>) => {
+    if (!data.connect) {
+      console.log("ooo");
+      shutdownWorker(id);
+    }
     putData("/api/points", { id, ...data }).then(() => {
       getAllPoints();
     });
@@ -43,61 +48,8 @@ export const SidebarPoint = ({
                     <span className="font-semibold">Lat: </span>
                     {point.lat}
                   </div>
-                  <div className="flex flex-col pl-2 text-sm">
-                    <span className="font-semibold">Lng: </span>
-                    <span>{point.lng}</span>
-                  </div>
-                </div>
-                <div className="flex h-10 items-center border-b-1">
+
                   <div className="px-2 text-sm">
-                    <span className="font-semibold">Frequency: </span>
-                    {point.frequency}
-                  </div>
-                  <div className="border-b-1 text-sm">
-                    <span className="font-semibold">connect: </span>
-                    <button
-                      onClick={() =>
-                        changeStatusHandler(point._id, {
-                          connect: !point.connect,
-                        })
-                      }
-                    >
-                      <Chip
-                        className="capitalize"
-                        color={
-                          statusColorMap[point.connect ? "active" : "disable"]
-                        }
-                        size="sm"
-                        variant="flat"
-                      >
-                        {point.connect ? "connect" : "disconnect"}
-                      </Chip>
-                    </button>
-                  </div>
-                  <div className="pl-2 text-sm">
-                    <span className="font-semibold">active: </span>
-                    <button
-                      onClick={() =>
-                        changeStatusHandler(point._id, {
-                          active: !point.active,
-                        })
-                      }
-                    >
-                      <Chip
-                        className="capitalize"
-                        color={
-                          statusColorMap[point.active ? "active" : "disable"]
-                        }
-                        size="sm"
-                        variant="flat"
-                      >
-                        {point.active ? "active" : "disable"}
-                      </Chip>
-                    </button>
-                  </div>
-                </div>
-                <div className="flex h-10 items-center gap-4 px-2">
-                  <div className="text-sm">
                     <span className="font-semibold">status: </span>
                     <button
                       onClick={() =>
@@ -133,6 +85,61 @@ export const SidebarPoint = ({
                         fill="#000000"
                       ></path>
                     </svg>
+                  </div>
+                </div>
+
+                <div className="flex h-10 items-center border-b-1">
+                  <div className="flex flex-col pl-2 text-sm">
+                    <span className="font-semibold">Lng: </span>
+                    <span>{point.lng}</span>
+                  </div>
+                  <div className="px-2 text-sm">
+                    <span className="font-semibold">connect: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          connect: !point.connect,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.connect ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.connect ? "connect" : "disconnect"}
+                      </Chip>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex h-10 items-center gap-4 px-2">
+                  <div className="pr-2 text-sm">
+                    <span className="font-semibold">Frequency: </span>
+                    {point.frequency}
+                  </div>
+                  <div className="pl-2 text-sm">
+                    <span className="font-semibold">active: </span>
+                    <button
+                      onClick={() =>
+                        changeStatusHandler(point._id, {
+                          active: !point.active,
+                        })
+                      }
+                    >
+                      <Chip
+                        className="capitalize"
+                        color={
+                          statusColorMap[point.active ? "active" : "disable"]
+                        }
+                        size="sm"
+                        variant="flat"
+                      >
+                        {point.active ? "active" : "disable"}
+                      </Chip>
+                    </button>
                   </div>
                 </div>
               </div>
