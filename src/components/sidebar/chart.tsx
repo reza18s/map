@@ -1,9 +1,11 @@
 import React, { useEffect } from "react";
+// @ts-expect-error the
 import Plotly from "plotly.js-dist";
 
 export const Chart = () => {
   useEffect(() => {
     // Example data
+    // @ts-expect-error the
     const time = [...Array(300).keys()];
     const angle = Array.from({ length: 300 }, () => Math.random() * 360);
     // Line plot for Angle vs Time
