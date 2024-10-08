@@ -16,9 +16,14 @@ import {
 } from "@nextui-org/react";
 import { useModal } from "@/store/useModal";
 import { useAppStore } from "@/store/store";
-import { Checkbox } from "../ui/checkbox";
+import MultipleSelector, { Option } from "@/components/ui/multiple-selector";
 import { Label } from "../ui/label";
-
+const OPTIONS: Option[] = [
+  { label: "frequency", value: "frequency" },
+  { label: "angle", value: "angle" },
+  { label: "status", value: "status" },
+  { label: "bandwidth", value: "bandwidth" },
+];
 export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   const { data, setIsLoading, isLoading, setClose } = useModal(
     (state) => state,
@@ -29,6 +34,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<z.infer<typeof pointObject>>({
     resolver: zodResolver(pointObject),
@@ -138,8 +144,31 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             isInvalid={!!errors.level}
             errorMessage={errors.level ? errors.level.message : ""}
             {...register("level", { required: true, valueAsNumber: true })}
+          />{" "}
+          <Input
+            isRequired
+            label="port"
+            labelPlacement="outside"
+            className="text-lg font-semibold"
+            placeholder="Enter point port"
+            isInvalid={!!errors.port}
+            errorMessage={errors.port ? errors.port.message : ""}
+            {...register("port", { required: true, valueAsNumber: true })}
+          />{" "}
+          <MultipleSelector
+            defaultOptions={OPTIONS}
+            placeholder="Select frameworks you like..."
+            className="bg-white"
+            emptyIndicator={
+              <p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">
+                no results found.
+              </p>
+            }
+            onChange={(e) => {
+              const data = e.map((e) => e.value);
+              setValue("requireData", data);
+            }}
           />
-
           {/* Select for Icon Type */}
           <Select
             label="Choose Icon"
@@ -179,7 +208,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
               {...register("status", { required: true })}
             ></Switch>
           </div>
-
           <div className="flex items-center  gap-2">
             <Label htmlFor="active" className="text-sm font-semibold">
               active:

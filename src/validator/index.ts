@@ -10,6 +10,8 @@ export const pointObject = z.object({
   iconType: z.string(),
   active: z.boolean(),
   status: z.boolean(),
+  port: z.number(),
+  requireData: z.array(z.string()),
   connect: z.boolean(),
   level: z.number(),
 });

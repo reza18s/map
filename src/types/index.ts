@@ -10,6 +10,9 @@ export interface IPoint {
   date: string;
   active: boolean;
   status: boolean;
+  port: number;
+  requireData: string[];
+
   connect: boolean;
   level: number;
 }

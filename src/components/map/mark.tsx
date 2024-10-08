@@ -67,7 +67,7 @@ export const Mark = ({
 
   useEffect(() => {
     if (point.connect) {
-      startPointWorker(point._id, point.frequency);
+      startPointWorker(point._id, point.port, point.requireData);
     }
   }, [point.connect]);
   return (
