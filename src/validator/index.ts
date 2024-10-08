@@ -20,4 +20,5 @@ export const settingsObject = z.object({
     .number()
     .min(0, { message: "Zoom must be at least 0" })
     .max(22, { message: "Zoom must be at most 22" }), // Validation for zoom
+  file: z.instanceof(FileList).optional(),
 });

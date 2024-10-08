@@ -8,7 +8,7 @@ import { connectDB } from "@/configs/db";
 const workersMap = new Map();
 
 // Function to start a worker for a given point
-const startPointWorker = async (pointId: string, frequency: number) => {
+const startPointWorker = async (pointId: string, port: number,data:string[]=[]) => {
   // Check if the worker for the point is already running
   if (workersMap.has(pointId)) {
     console.log(`Worker for point ${pointId} is already running.`);
@@ -21,11 +21,11 @@ const startPointWorker = async (pointId: string, frequency: number) => {
     throw new Error("Point not found");
   }
 
-  const url = `http://localhost:${frequency === 5001 ? 5001 : 5000}`;
+  const url = `http://localhost:${port || 5000}`;
   const clientId = Math.random().toString(36).substr(2, 9);
 
   const worker = new Worker("./src/helper/clientWorker.js", {
-    workerData: { url, clientId, data: ["frequency"] },
+    workerData: { url, clientId, data: data },
   });
 
   workersMap.set(pointId, worker); // Store worker in the map

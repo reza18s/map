@@ -1,8 +1,9 @@
 import React, { useEffect } from "react";
 // @ts-expect-error the
 import Plotly from "plotly.js-dist";
+import { IPoint } from "@/types";
 
-export const Chart = () => {
+export const Chart = ({ point }: { point: IPoint }) => {
   useEffect(() => {
     // Example data
     // @ts-expect-error the

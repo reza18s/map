@@ -181,6 +181,24 @@ export async function GET() {
   }
 }
 
+// File: src/app/api/points/del/route.ts
+import { connectDB } from "@/configs/db";
+import PointsModel from "@/models/pointsModel";
+import { NextResponse } from "next/server";
+
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const { id } = body;
+
+    await PointsModel.findByIdAndDelete({ _id: id });
+    return NextResponse.json({ message: "Point deleted successfully!" });
+  } catch (err) {
+    return NextResponse.json({ message: err }, { status: 500 });
+  }
+}
+
 // File: src/app/api/points/route.ts
 import { connectDB } from "@/configs/db";
 import { startPointWorker } from "@/helper/workerManager";
@@ -868,6 +886,7 @@ export const controlSaveTiles = ({
 };
 
 // File: src/helper/workerManager.ts
+/* eslint-disable no-console */
 "use server";
 import { Worker } from "worker_threads";
 import PointsModel from "@/models/pointsModel";
@@ -877,7 +896,7 @@ import { connectDB } from "@/configs/db";
 const workersMap = new Map();
 
 // Function to start a worker for a given point
-const startPointWorker = async (pointId: string, frequency: number) => {
+const startPointWorker = async (pointId: string, port: number,data:string[]=[]) => {
   // Check if the worker for the point is already running
   if (workersMap.has(pointId)) {
     console.log(`Worker for point ${pointId} is already running.`);
@@ -890,11 +909,11 @@ const startPointWorker = async (pointId: string, frequency: number) => {
     throw new Error("Point not found");
   }
 
-  const url = `http://localhost:${frequency === 5001 ? 5001 : 5000}`;
+  const url = `http://localhost:${port || 5000}`;
   const clientId = Math.random().toString(36).substr(2, 9);
 
   const worker = new Worker("./src/helper/clientWorker.js", {
-    workerData: { url, clientId, data: ["frequency"] },
+    workerData: { url, clientId, data: data },
   });
 
   workersMap.set(pointId, worker); // Store worker in the map
@@ -1500,6 +1519,7 @@ export interface ISettings {
   lat: number;
   lng: number;
   zoom: number;
+  PointIcon: { name: string; url: string }[];
 }
 export interface ILine {
   _id: string;
@@ -1594,6 +1614,7 @@ export const settingsObject = z.object({
     .number()
     .min(0, { message: "Zoom must be at least 0" })
     .max(22, { message: "Zoom must be at most 22" }), // Validation for zoom
+  file: z.instanceof(File).optional(),
 });
 
 // File: src/components/global/pointAction.tsx
@@ -1726,14 +1747,20 @@ import { IPoint } from "@/types";
 import { Button, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useAppStore } from "@/store/store";
 
-export const DeletePointModal = ({ data }: { data: IPoint }) => {
+export const DeletePointModal = ({
+  data,
+  url = "/api/points",
+}: {
+  data: IPoint;
+  url?: string;
+}) => {
   const setClose = useModal((state) => state.setClose);
   const getAllPoints = useAppStore((state) => state.getAllPoints);
   const setIsLoading = useModal((state) => state.setIsLoading);
   const isLoading = useModal((state) => state.isLoading);
   const deletePointHandler = () => {
     setIsLoading(true);
-    deleteData("/api/points", { id: data._id }).then(() => {
+    deleteData(url, { id: data._id }).then(() => {
       getAllPoints();
       setIsLoading(false);
       setClose();
@@ -2278,8 +2305,8 @@ export const getPointIcon = (iconType: string) => {
 "use client";
 
 import { EditIcon, Trash2 } from "lucide-react";
-import React, { useEffect } from "react";
-import { Marker, Popup, Tooltip } from "react-leaflet";
+import React, { useEffect, useState } from "react";
+import { Marker, Polyline, Popup, Tooltip } from "react-leaflet";
 import { Modals } from "../modals";
 import { DeletePointModal } from "../modals/deletePointModal";
 import { PointForm } from "../forms/pointForm";
@@ -2290,6 +2317,8 @@ import { useAppStore } from "@/store/store";
 import { useModal } from "@/store/useModal";
 import { startPointWorker } from "@/helper/workerManager";
 
+import L from "leaflet";
+let currentLine: L.Polyline<any>;
 export const Mark = ({
   point,
   setPointLabel,
@@ -2297,91 +2326,190 @@ export const Mark = ({
   point: IPoint;
   setPointLabel: React.Dispatch<React.SetStateAction<Partial<IPoint>>>;
 }) => {
-  const { getAllPoints } = useAppStore((state) => state);
+  const { getAllPoints, map } = useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
+
+  // State to hold the single line to display
 
   const changeStatusHandler = (id: string) => {
     postData("/api/points/change-status", { id }).then(() => {
       getAllPoints();
     });
   };
+
+  // Function to calculate the new point based on the angle and distance
+  const calculateEndpoint = (
+    lat: number,
+    lng: number,
+    angle: number,
+    distance: number = 1000, // 1 km
+  ): [number, number] => {
+    const R = 6371000; // Radius of the Earth in meters
+    const angularDistance = distance / R; // Angular distance in radians
+    const angleRad = (angle * Math.PI) / 180; // Convert the angle to radians
+
+    const newLat = Math.asin(
+      Math.sin((lat * Math.PI) / 180) * Math.cos(angularDistance) +
+        Math.cos((lat * Math.PI) / 180) *
+          Math.sin(angularDistance) *
+          Math.cos(angleRad),
+    );
+
+    const newLng =
+      ((lng * Math.PI) / 180 +
+        Math.atan2(
+          Math.sin(angleRad) *
+            Math.sin(angularDistance) *
+            Math.cos((lat * Math.PI) / 180),
+          Math.cos(angularDistance) -
+            Math.sin((lat * Math.PI) / 180) * Math.sin(newLat),
+        )) *
+      (180 / Math.PI);
+
+    return [newLat * (180 / Math.PI), newLng];
+  };
+
   useEffect(() => {
     if (point.connect) {
       startPointWorker(point._id, point.frequency);
     }
   }, [point.connect]);
   return (
-    <Marker
-      key={point._id}
-      icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
-      position={[point.lat, point.lng]}
-      eventHandlers={{
-        mouseover: () => {
-          setPointLabel(point);
-        },
-        mouseout: () => {
-          setPointLabel({});
-        },
-      }}
-    >
-      <Tooltip direction="bottom" offset={[0, 10]} permanent>
-        {point.name}
-      </Tooltip>
-      <Popup>
-        <div className="flex w-full flex-col gap-1">
-          <span>name: {point.name}</span>
-          <span>lat: {point.lat}</span>
-          <span>lng: {point.lng}</span>
-          <span>frequency: {point.frequency}</span>
-          <span>status: {point.status}</span>
+    <>
+      <Marker
+        key={point._id}
+        icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
+        position={[point.lat, point.lng]}
+        eventHandlers={{
+          mouseover: () => {
+            setPointLabel(point);
+          },
+          mouseout: () => {
+            setPointLabel({});
+          },
+          click: () => {
+            // Remove the existing line before adding a new one
 
-          <div className="mt-2 flex w-full items-center justify-center gap-3">
-            <button
-              onClick={() =>
-                setOpen(
-                  <Modals title="edit point">
-                    <PointForm type="edit"></PointForm>
-                  </Modals>,
-                  { point },
-                )
-              }
-              className="cursor-pointer text-lg text-default-400 active:opacity-50"
-            >
-              <EditIcon />
-            </button>
+            // Calculate the endpoint for the new line based on the point's angle
+            const endPoint = calculateEndpoint(
+              point.lat,
+              point.lng,
+              point.level,
+            );
 
-            <button
-              onClick={() =>
-                setOpen(<DeletePointModal data={point}></DeletePointModal>)
-              }
-              className="cursor-pointer text-lg text-danger active:opacity-50"
-            >
-              <Trash2 />
-            </button>
+            // Create a new line from the point to the calculated endpoint
+            if (currentLine) {
+              map?.removeLayer(currentLine); // Remove the existing line
+            }
+            currentLine = L.polyline([[point.lat, point.lng], endPoint], {
+              color: "blue",
+            }).addTo(map!); // Add new line to the map
+          },
+        }}
+      >
+        <Tooltip direction="bottom" offset={[0, 10]} permanent>
+          {point.name}
+        </Tooltip>
+        <Popup>
+          <div className="flex w-full flex-col gap-1">
+            <span>name: {point.name}</span>
+            <span>lat: {point.lat}</span>
+            <span>lng: {point.lng}</span>
+            <span>frequency: {point.frequency}</span>
+            <span>status: {point.status}</span>
 
-            <button
-              onClick={() => changeStatusHandler(point._id)}
-              className="cursor-pointer text-lg text-warning active:opacity-50"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="1.5"
-                stroke="currentColor"
-                className="size-5"
+            <div className="mt-2 flex w-full items-center justify-center gap-3">
+              <button
+                onClick={() =>
+                  setOpen(
+                    <Modals title="edit point">
+                      <PointForm type="edit"></PointForm>
+                    </Modals>,
+                    { point },
+                  )
+                }
+                className="cursor-pointer text-lg text-default-400 active:opacity-50"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
-                />
-              </svg>
-            </button>
+                <EditIcon />
+              </button>
+
+              <button
+                onClick={() =>
+                  setOpen(
+                    <DeletePointModal
+                      data={point}
+                      url="/api/points/del"
+                    ></DeletePointModal>,
+                  )
+                }
+                className="cursor-pointer text-lg text-danger active:opacity-50"
+              >
+                <Trash2 />
+              </button>
+
+              <button
+                onClick={() => changeStatusHandler(point._id)}
+                className="cursor-pointer text-lg text-warning active:opacity-50"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="size-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
-      </Popup>
-    </Marker>
+        </Popup>
+      </Marker>
+    </>
+  );
+};
+
+// File: src/components/sidebar/chart.tsx
+import React, { useEffect } from "react";
+// @ts-expect-error the
+import Plotly from "plotly.js-dist";
+import { IPoint } from "@/types";
+
+export const Chart = ({ point }: { point: IPoint }) => {
+  useEffect(() => {
+    // Example data
+    // @ts-expect-error the
+    const time = [...Array(300).keys()];
+    const angle = Array.from({ length: 300 }, () => Math.random() * 360);
+    // Line plot for Angle vs Time
+    const lineplotData = [
+      {
+        x: time,
+        y: angle,
+        type: "scatter",
+        mode: "lines",
+        line: { color: "black" },
+      },
+    ];
+
+    const lineplotLayout = {
+      title: "Angle over Time",
+      xaxis: { title: "Time (sec)" },
+      yaxis: { title: "Angle (degrees)" },
+    };
+
+    Plotly.newPlot("lineplot", lineplotData, lineplotLayout);
+  }, []); // Empty dependency array ensures this runs only once after the component mounts
+
+  return (
+    <div>
+      <div id="lineplot" style={{ width: "345px", height: "300px" }}></div>
+    </div>
   );
 };
 
@@ -2398,6 +2526,7 @@ import { putData } from "@/services/API";
 import { Chip } from "@nextui-org/react";
 import { statusColorMap } from "../map/Table";
 import { shutdownWorker } from "@/helper/workerManager";
+import { Chart } from "./chart";
 
 export const SidebarPoint = ({
   points,
@@ -2410,7 +2539,6 @@ export const SidebarPoint = ({
 }) => {
   const changeStatusHandler = (id: string, data: Partial<IPoint>) => {
     if (!data.connect) {
-      console.log("ooo");
       shutdownWorker(id);
     }
     putData("/api/points", { id, ...data }).then(() => {
@@ -2418,7 +2546,9 @@ export const SidebarPoint = ({
     });
   };
   return (
-    <div className={`${openSidebar ? "" : "hidden"} my-5`}>
+    <div
+      className={`${openSidebar ? "" : "hidden"} my-5 max-h-[700px] overflow-y-scroll`}
+    >
       <Accordion type="single" collapsible>
         {points.map((point) => (
           <AccordionItem key={point._id} value={point._id}>
@@ -2538,6 +2668,7 @@ export const SidebarPoint = ({
                     </button>
                   </div>
                 </div>
+                <Chart point={point}></Chart>
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -2566,7 +2697,7 @@ export default function Sidebar() {
   );
   return (
     <div
-      className={`${openSidebar ? "min-w-96" : "min-w-16"} relative  transition-all duration-300`}
+      className={`${openSidebar ? "min-w-96" : "min-w-16"} relative  overflow-y-scroll transition-all duration-300`}
     >
       <div
         className={`${openSidebar ? "min-w-96 p-5" : "min-w-16 p-2"} fixed bottom-0 flex h-full flex-col justify-between  gap-4 bg-indigo-100 pt-3 transition-all duration-300`}
@@ -2788,7 +2919,6 @@ export const SettingsForm = () => {
   const {
     register,
     handleSubmit,
-    getValues,
     formState: { errors },
   } = useForm<z.infer<typeof settingsObject>>({
     resolver: zodResolver(settingsObject),
@@ -2800,6 +2930,7 @@ export const SettingsForm = () => {
     },
   });
   const submitHandler = (data: z.infer<typeof settingsObject>) => {
+    console.log(data.file);
     setIsLoading(true);
     postData("/api/settings", {
       lat: data.lat_settings,
@@ -2859,6 +2990,14 @@ export const SettingsForm = () => {
             isInvalid={!!errors.zoom}
             errorMessage={errors.zoom ? errors.zoom.message : ""}
             {...register("zoom", { required: true, valueAsNumber: true })}
+          />
+
+          <Input
+            type="file"
+            accept=".svg"
+            isInvalid={!!errors.zoom}
+            errorMessage={errors.zoom ? errors.zoom.message : ""}
+            {...register("file", { required: true })}
           />
         </div>
       </ModalBody>
@@ -3197,5 +3336,205 @@ import { useModal } from "@/store/useModal";
 export const ModalProvider = () => {
   const Model = useModal((state) => state.modal);
   return <>{Model}</>;
+};
+
+// File: models/PolygonModel.ts
+import mongoose from "mongoose";
+
+const polygonSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  points: [{ lat: Number, lng: Number }], // Array of polygon vertices
+  flag: { type: Number, default: 1 }, // 0 (hide) or 1 (show)
+  isPolygon: { type: Boolean, default: true }, // True for polygons
+  date: { type: Date, default: Date.now },
+  deletedAt: { type: mongoose.Schema.Types.Mixed, default: null },
+});
+const PolygonsModel =
+  mongoose.models.Polygons || mongoose.model("Polygons", polygonSchema);
+
+export default PolygonsModel;
+
+// File: models/LineModel.ts
+// models/LineModel.ts
+import mongoose from "mongoose";
+
+// تعریف اسکیمای خط
+const lineSchema = new mongoose.Schema({
+  startPoint: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  endPoint: {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  length: { type: Number, required: true }, // طول خط
+  angle: { type: Number, required: true }, // زاویه خط
+  createdAt: { type: Date, default: Date.now }, // تاریخ ایجاد خط
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // کاربری که خط را ایجاد کرده است (اختیاری)
+  deletedAt: { type: Date, default: null }, // تاریخ حذف (برای حذف نرم)
+});
+
+// ایجاد مدل خط با استفاده از اسکیمای تعریف‌شده
+const LineModel = mongoose.models.Lines || mongoose.model("Lines", lineSchema);
+
+export default LineModel;
+
+// File: models/DFModels.ts
+import mongoose from "mongoose";
+
+const DFSchema = new mongoose.Schema(
+  {
+    bRunState: { type: Boolean, default: false }, // true -> DF, false -> Stop
+    bWideband: { type: Boolean, default: false }, // true -> Wideband, false -> Narrowband
+    dFrequencyRF: { type: Number, required: true }, // RF Frequency
+    dFrequencyStartScan: { type: Number, required: true }, // Start frequency of the scan
+    dFrequencyStopScan: { type: Number, required: true }, // Stop frequency of the scan
+    dBandwidthIF: { type: Number, required: true }, // Intermediate Frequency Bandwidth in MHz
+    dBandwidthDF: { type: Number, required: true }, // DF Bandwidth
+    bNormalModeDF: { type: Boolean, default: false }, // true -> Normal, false -> Continues
+    bNormalModeDFMode: {
+      type: String,
+      enum: ["Normal", "Continues"],
+      default: "Normal",
+    }, // ModeDF enum
+    dThresholdLevelDF: { type: Number }, // DF Threshold Level
+    dThresholdQualityDF: { type: Number }, // DF Threshold Quality
+    iAverageTimeDF: { type: Number }, // Average time in milliseconds
+    bPreAmplifierRF: { type: Boolean, default: false }, // Pre-Amplifier RF status
+    bPreAmplifierRFMode: { type: String, enum: ["OFF", "ON"], default: "OFF" }, // PreAmplifierRF enum
+    bLongAntennaRF: { type: Boolean, default: false }, // Antenna RF status
+    bLongAntennaRFMode: {
+      type: String,
+      enum: ["Short", "Long"],
+      default: "Short",
+    }, // AntennaRF enum
+    iTunerModeRF: { type: Number }, // Tuner Mode RF
+    iGainRF: { type: Number }, // Gain for RF
+    bAutoGainIF: { type: String, enum: ["MGC", "AGC"], default: "MGC" }, // GainIF enum
+    iManualGainIF: { type: Number }, // Manual Gain in dBm
+    iAutoGainCtrlTime: { type: Number }, // Auto Gain Control time in milliseconds
+    dMaxGainAgc: { type: Number }, // Max gain for AGC in dBm
+    bAFC: { type: Boolean, default: false }, // AFC status
+    bAFCMode: { type: String, enum: ["ON", "OFF"], default: "OFF" }, // AFC enum
+    bVoiceState: { type: Boolean, default: false }, // Voice state
+    bSquelchState: { type: Boolean, default: false }, // Squelch state
+    bStateDenoising: { type: Boolean, default: false }, // Denoising state
+    strDemodulation: { type: String, default: "AM" }, // Demodulation type (AM, FM, etc.)
+    dBandwidthVoice: { type: Number }, // Voice bandwidth in KHz
+    iBeatFreqOffset: { type: Number }, // Beat frequency offset in Hz
+    dGainVoice: { type: Number }, // Gain for voice in dBm
+    bClassifier: { type: Boolean, default: false }, // Classifier state
+    iTimeHistoryCL: { type: Number }, // Time history for classifier in milliseconds
+  },
+  { timestamps: true },
+);
+
+const DF = mongoose.model("DF", DFSchema);
+module.exports = DF;
+
+// File: models/SettingsModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  lat: { type: Number, required: true, default: 35.694523130867424 },
+  lng: { type: Number, required: true, default: 51.30922197948697 },
+  zoom: { type: Number, required: true, default: 13 },
+  PointIcon: { type: Array, default: [] },
+});
+
+const SettingsModel =
+  mongoose.models.SettingsModel || mongoose.model("SettingsModel", schema);
+
+export default SettingsModel;
+
+// File: models/pointsModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  lat: {
+    type: Number,
+    required: true,
+  },
+  lng: {
+    type: Number,
+    required: true,
+  },
+  frequency: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: Boolean,
+    default: false,
+  },
+  active: {
+    type: Boolean,
+    default: false,
+  },
+  connect: {
+    type: Boolean,
+    default: false,
+  },
+  level: {
+    type: Number,
+    required: true,
+  },
+  date: {
+    type: Date,
+    default: () => Date.now(),
+  },
+  iconType: {
+    type: String,
+  },
+  workerStatus: { type: String, default: "inactive" }, // Tracks worker status
+  receivedData: { type: Array, default: [] },
+  deletedAt: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+});
+
+const PointsModel = mongoose.models.Points || mongoose.model("Points", schema);
+
+export default PointsModel;
+
+// File: models/targetModel.ts
+import mongoose from "mongoose";
+
+const schema = new mongoose.Schema({
+  dFrequency: { type: Number, required: true }, // Target frequency
+  dAzimuth: { type: Number, required: true }, // Azimuth angle
+  dLevel: { type: Number, required: true }, // Signal level
+  dQuality: { type: Number, required: true, min: 0, max: 100 }, // Signal quality (0 to 100)
+});
+
+const TargetModel = mongoose.models.Target || mongoose.model("Target", schema);
+
+export default TargetModel;
+
+// File: configs/db.ts
+import mongoose from "mongoose";
+
+let isConnected = false; // Track the database connection status
+
+export const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
+  try {
+    if (!mongoose.connections[0].readyState) {
+      await mongoose.connect(process.env.MONGO_URL!);
+      isConnected = true;
+      console.log("Database connected");
+    }
+  } catch (err) {
+    console.error("Database connection error:", err);
+    throw err; // Ensure error bubbles up
+  }
 };
 

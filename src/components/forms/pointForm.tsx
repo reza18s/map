@@ -24,6 +24,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
     (state) => state,
   );
   const getAllPoints = useAppStore((state) => state.getAllPoints);
+  const settings = useAppStore((state) => state.settings);
   const {
     register,
     handleSubmit,
@@ -149,24 +150,25 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.iconType ? errors.iconType.message : ""}
             {...register("iconType", { required: true })}
           >
-            <SelectItem key="car" value="car">
-              Car
-            </SelectItem>
-            <SelectItem key="plane" value="plane">
-              Plane
-            </SelectItem>
-            <SelectItem key="bus" value="bus">
-              Bus
-            </SelectItem>
-            <SelectItem key="human" value="human">
-              human
-            </SelectItem>
-            <SelectItem key="helicopter" value="helicopter">
-              helicopter
-            </SelectItem>
-            <SelectItem key="train" value="train">
-              train
-            </SelectItem>
+            {settings?.PointIcon ? (
+              settings?.PointIcon.map((val) => (
+                <SelectItem key={val.name} value={val.name}>
+                  {val.name}
+                </SelectItem>
+              ))
+            ) : (
+              <>
+                <SelectItem key="car" value="car">
+                  Car
+                </SelectItem>
+                <SelectItem key="plane" value="plane">
+                  Plane
+                </SelectItem>
+                <SelectItem key="bus" value="bus">
+                  Bus
+                </SelectItem>
+              </>
+            )}
           </Select>
           <div className="flex items-center  gap-2">
             <Label htmlFor="status" className="text-sm font-semibold">

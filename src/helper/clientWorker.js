@@ -5,7 +5,6 @@ import { io } from "socket.io-client";
 const { url, clientId, data } = workerData;
 
 const socket = io(url);
-console.log("clint");
 socket.on("connect", () => {
   console.log(`Connected to server at ${url}`);
   socket.emit("initial_data", { clientId, data });

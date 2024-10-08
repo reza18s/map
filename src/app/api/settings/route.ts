@@ -6,11 +6,11 @@ export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { lat, lng, zoom } = body;
-
+    const { lat, lng, zoom, PointIcon } = body;
+    console.log(PointIcon);
     await SettingsModel.findOneAndUpdate(
-      { _id: "66c3774a9757762530e4bfd1" },
-      { $set: { lat, lng, zoom } },
+      { _id: "6703d33db86aa836f46946c6" },
+      { $set: { lat, lng, zoom, PointIcon } },
     );
 
     return NextResponse.json(
@@ -26,7 +26,7 @@ export async function GET() {
   try {
     await connectDB();
     const settings = await SettingsModel.findOne(
-      { _id: "66c3774a9757762530e4bfd1" },
+      { _id: "6703d33db86aa836f46946c6" },
       "-__v",
     );
     return NextResponse.json(settings);

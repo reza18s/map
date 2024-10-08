@@ -14,7 +14,6 @@ export const SettingsForm = () => {
   const {
     register,
     handleSubmit,
-    getValues,
     formState: { errors },
   } = useForm<z.infer<typeof settingsObject>>({
     resolver: zodResolver(settingsObject),
@@ -25,20 +24,45 @@ export const SettingsForm = () => {
       zoom: settings?.zoom || 11,
     },
   });
-  const submitHandler = (data: z.infer<typeof settingsObject>) => {
+  const submitHandler = async (data: z.infer<typeof settingsObject>) => {
+    let svg: { name: string; url: string } | undefined;
     setIsLoading(true);
-    postData("/api/settings", {
-      lat: data.lat_settings,
-      lng: data.lng_settings,
-      zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
-    })
-      .then(() => {
-        setIsLoading(false);
-        window.location.reload();
-      })
-      .catch(() => {
-        setIsLoading(false);
+    const formData = new FormData();
+    if (data?.file) {
+      const file = data?.file[0];
+      formData.append("file", file);
+      const res = await fetch("/api/uploads/svg", {
+        method: "POST",
+        body: formData,
       });
+      svg = await res.json();
+    }
+    if (!svg) {
+      postData("/api/settings", {
+        lat: data.lat_settings,
+        lng: data.lng_settings,
+        zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
+      })
+        .then(() => {
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setIsLoading(false);
+        });
+    } else {
+      postData("/api/settings", {
+        lat: data.lat_settings,
+        lng: data.lng_settings,
+        zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
+        PointIcon: [...((settings?.PointIcon as []) || []), svg],
+      })
+        .then(() => {
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setIsLoading(false);
+        });
+    }
   };
   return (
     <form
@@ -85,6 +109,14 @@ export const SettingsForm = () => {
             isInvalid={!!errors.zoom}
             errorMessage={errors.zoom ? errors.zoom.message : ""}
             {...register("zoom", { required: true, valueAsNumber: true })}
+          />
+
+          <Input
+            type="file"
+            accept=".svg"
+            isInvalid={!!errors.file}
+            errorMessage={errors.file ? errors.file.message : ""}
+            {...register("file")}
           />
         </div>
       </ModalBody>

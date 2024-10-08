@@ -1,8 +1,8 @@
 "use client";
 
 import { EditIcon, Trash2 } from "lucide-react";
-import React, { useEffect, useState } from "react";
-import { Marker, Polyline, Popup, Tooltip } from "react-leaflet";
+import React, { useEffect } from "react";
+import { Marker, Popup, Tooltip } from "react-leaflet";
 import { Modals } from "../modals";
 import { DeletePointModal } from "../modals/deletePointModal";
 import { PointForm } from "../forms/pointForm";

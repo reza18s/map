@@ -37,6 +37,14 @@ const schema = new mongoose.Schema({
     type: Date,
     default: () => Date.now(),
   },
+  requireData: {
+    type: String,
+    default: [],
+  },
+  port: {
+    type: Number,
+    default: 5000,
+  },
   iconType: {
     type: String,
   },
