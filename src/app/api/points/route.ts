@@ -16,11 +16,12 @@ export async function POST(req: Request) {
       frequency,
       iconType,
       active,
+      port,
+      requireData,
       connect,
       status,
       level,
     } = body;
-
     const points = await PointsModel.create({
       lat,
       lng,
@@ -30,6 +31,8 @@ export async function POST(req: Request) {
       frequency,
       deletedAt,
       active,
+      port,
+      requireData,
       connect,
       status,
       level,
@@ -39,6 +42,7 @@ export async function POST(req: Request) {
       { status: 200 },
     );
   } catch (err) {
+    console.log(err);
     return NextResponse.json({ message: err }, { status: 500 });
   }
 }
@@ -65,6 +69,8 @@ export async function PUT(req: Request) {
       frequency,
       iconType,
       active,
+      port,
+      requireData,
       connect,
       status,
       level,
@@ -81,6 +87,8 @@ export async function PUT(req: Request) {
           frequency,
           iconType,
           active,
+          port,
+          requireData,
           connect,
           status,
           level,

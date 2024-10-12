@@ -7,7 +7,6 @@ import { PointForm } from "../forms/pointForm";
 import { useAppStore } from "@/store/store";
 import { Eye, EyeOff, Menu } from "lucide-react";
 import { SidebarPoint } from "./SidebarPoint";
-
 export default function Sidebar() {
   const setOpen = useModal((state) => state.setOpen);
   const [openSidebar, setOpenSidebar] = useState(false);

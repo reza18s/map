@@ -3,12 +3,17 @@
 import { Worker } from "worker_threads";
 import PointsModel from "@/models/pointsModel";
 import { connectDB } from "@/configs/db";
+import PointsDataModel from "@/models/pointDataModel";
 
 // Map to keep track of running workers
 const workersMap = new Map();
 
 // Function to start a worker for a given point
-const startPointWorker = async (pointId: string, port: number,data:string[]=[]) => {
+const startPointWorker = async (
+  pointId: string,
+  port: number,
+  data: string[] = [],
+) => {
   // Check if the worker for the point is already running
   if (workersMap.has(pointId)) {
     console.log(`Worker for point ${pointId} is already running.`);
@@ -22,10 +27,9 @@ const startPointWorker = async (pointId: string, port: number,data:string[]=[]) 
   }
 
   const url = `http://localhost:${port || 5000}`;
-  const clientId = Math.random().toString(36).substr(2, 9);
 
   const worker = new Worker("./src/helper/clientWorker.js", {
-    workerData: { url, clientId, data: data },
+    workerData: { url, clientId: pointId, data: data },
   });
 
   workersMap.set(pointId, worker); // Store worker in the map
@@ -33,8 +37,11 @@ const startPointWorker = async (pointId: string, port: number,data:string[]=[]) 
   worker.on("message", async (msg) => {
     if (msg.status === "data") {
       console.log(`Received data from worker for ${point.name}:`, msg.data);
+      const data = await PointsDataModel.create({
+        data: msg.data,
+      });
       await PointsModel.findByIdAndUpdate(pointId, {
-        $set: { workerStatus: "active", receivedData: msg.data },
+        $set: { workerStatus: "active", PointsData: data },
       });
     } else if (msg.status === "error") {
       console.error(`Worker error for ${point.name}`);
@@ -63,7 +70,8 @@ const startPointWorker = async (pointId: string, port: number,data:string[]=[]) 
 const shutdownWorker = async (pointId: string) => {
   const worker = workersMap.get(pointId);
   if (!worker) {
-    throw new Error("Worker not found for this point");
+    console.error("Worker not found for this point");
+    return;
   }
 
   worker.terminate(); // Gracefully terminate the worker

@@ -38,7 +38,7 @@ const schema = new mongoose.Schema({
     default: () => Date.now(),
   },
   requireData: {
-    type: String,
+    type: Array,
     default: [],
   },
   port: {
@@ -48,8 +48,8 @@ const schema = new mongoose.Schema({
   iconType: {
     type: String,
   },
-  workerStatus: { type: String, default: "inactive" }, // Tracks worker status
-  receivedData: { type: Array, default: [] },
+  workerStatus: { type: String, default: "inactive" },
+  PointsData: [{ type: mongoose.Types.ObjectId, ref: "PointsData" }],
   deletedAt: {
     type: mongoose.Schema.Types.Mixed,
     default: null,

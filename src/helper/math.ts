@@ -24,3 +24,33 @@ export const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
   const angle = (Math.atan2(Δφ, Δλ) * 180) / Math.PI; // Angle in degrees
   return angle;
 };
+export const calculateDotPosition = (
+  lat: number,
+  lng: number,
+  angle: number,
+  distance: number = 500, // distance in meters
+): [number, number] => {
+  const R = 6371000; // Radius of the Earth in meters
+  const angularDistance = distance / R; // Angular distance in radians
+  const angleRad = (angle * Math.PI) / 180; // Convert the angle to radians
+
+  const newLat = Math.asin(
+    Math.sin((lat * Math.PI) / 180) * Math.cos(angularDistance) +
+      Math.cos((lat * Math.PI) / 180) *
+        Math.sin(angularDistance) *
+        Math.cos(angleRad),
+  );
+
+  const newLng =
+    ((lng * Math.PI) / 180 +
+      Math.atan2(
+        Math.sin(angleRad) *
+          Math.sin(angularDistance) *
+          Math.cos((lat * Math.PI) / 180),
+        Math.cos(angularDistance) -
+          Math.sin((lat * Math.PI) / 180) * Math.sin(newLat),
+      )) *
+    (180 / Math.PI);
+
+  return [newLat * (180 / Math.PI), newLng];
+};

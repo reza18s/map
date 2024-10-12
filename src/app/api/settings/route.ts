@@ -7,12 +7,10 @@ export async function POST(req: Request) {
     await connectDB();
     const body = await req.json();
     const { lat, lng, zoom, PointIcon } = body;
-    console.log(PointIcon);
     await SettingsModel.findOneAndUpdate(
       { _id: "6703d33db86aa836f46946c6" },
       { $set: { lat, lng, zoom, PointIcon } },
     );
-
     return NextResponse.json(
       { message: "Point updated successfully!" },
       { status: 200 },
@@ -29,6 +27,11 @@ export async function GET() {
       { _id: "6703d33db86aa836f46946c6" },
       "-__v",
     );
+    if (!settings) {
+      await SettingsModel.create({
+        _id: "6703d33db86aa836f46946c6",
+      });
+    }
     return NextResponse.json(settings);
   } catch (err) {
     return NextResponse.json({ message: err }, { status: 500 });

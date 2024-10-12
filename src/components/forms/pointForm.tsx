@@ -30,6 +30,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   );
   const getAllPoints = useAppStore((state) => state.getAllPoints);
   const settings = useAppStore((state) => state.settings);
+  console.log(settings);
   const {
     register,
     handleSubmit,
@@ -58,33 +59,41 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       putData("/api/points/", {
         ...newPoint,
         id: data.point?._id,
-      }).then(() => {
-        setIsLoading(false);
-        getAllPoints();
-        reset({
-          name: "",
-          lat: 0,
-          lng: 0,
-          frequency: 0,
-          iconType: "car",
+      })
+        .then(() => {
+          setIsLoading(false);
+          getAllPoints();
+          reset({
+            name: "",
+            lat: 0,
+            lng: 0,
+            frequency: 0,
+            iconType: "car",
+          });
+          setClose();
+        })
+        .catch(() => {
+          setIsLoading(false);
         });
-        setClose();
-      });
     } else {
       setIsLoading(true);
-      postData("/api/points", { ...newPoint }).then(() => {
-        getAllPoints();
-        setIsLoading(false);
+      postData("/api/points", { ...newPoint })
+        .then(() => {
+          getAllPoints();
+          setIsLoading(false);
 
-        reset({
-          name: "",
-          lat: 0,
-          lng: 0,
-          frequency: 0,
-          iconType: "car",
+          reset({
+            name: "",
+            lat: 0,
+            lng: 0,
+            frequency: 0,
+            iconType: "car",
+          });
+          setClose();
+        })
+        .catch(() => {
+          setIsLoading(false);
         });
-        setClose();
-      });
     }
   };
 
@@ -154,7 +163,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             isInvalid={!!errors.port}
             errorMessage={errors.port ? errors.port.message : ""}
             {...register("port", { required: true, valueAsNumber: true })}
-          />{" "}
+          />
           <MultipleSelector
             defaultOptions={OPTIONS}
             placeholder="Select frameworks you like..."
@@ -169,7 +178,6 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
               setValue("requireData", data);
             }}
           />
-          {/* Select for Icon Type */}
           <Select
             label="Choose Icon"
             placeholder="Select an icon"
@@ -179,7 +187,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.iconType ? errors.iconType.message : ""}
             {...register("iconType", { required: true })}
           >
-            {settings?.PointIcon ? (
+            {settings ? (
               settings?.PointIcon.map((val) => (
                 <SelectItem key={val.name} value={val.name}>
                   {val.name}

@@ -6,6 +6,7 @@ import { deleteData } from "@/services/API";
 import { IPoint } from "@/types";
 import { Button, ModalBody, ModalFooter } from "@nextui-org/react";
 import { useAppStore } from "@/store/store";
+import { shutdownWorker } from "@/helper/workerManager";
 
 export const DeletePointModal = ({
   data,
@@ -20,6 +21,9 @@ export const DeletePointModal = ({
   const isLoading = useModal((state) => state.isLoading);
   const deletePointHandler = () => {
     setIsLoading(true);
+    if (!data.connect) {
+      shutdownWorker(data._id);
+    }
     deleteData(url, { id: data._id }).then(() => {
       getAllPoints();
       setIsLoading(false);

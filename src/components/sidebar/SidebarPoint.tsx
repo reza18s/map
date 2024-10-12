@@ -9,7 +9,9 @@ import { IPoint } from "@/types";
 import { putData } from "@/services/API";
 import { Chip } from "@nextui-org/react";
 import { statusColorMap } from "../map/Table";
+import { shutdownWorker } from "@/helper/workerManager";
 import { Chart } from "./chart";
+import { PointDataFilter } from "../global/pointDataFilter";
 
 export const SidebarPoint = ({
   points,
@@ -21,6 +23,9 @@ export const SidebarPoint = ({
   getAllPoints: () => void;
 }) => {
   const changeStatusHandler = (id: string, data: Partial<IPoint>) => {
+    if (!data.connect) {
+      shutdownWorker(id);
+    }
     putData("/api/points", { id, ...data }).then(() => {
       getAllPoints();
     });
@@ -148,6 +153,8 @@ export const SidebarPoint = ({
                     </button>
                   </div>
                 </div>
+
+                <PointDataFilter point={point}></PointDataFilter>
                 <Chart point={point}></Chart>
               </div>
             </AccordionContent>
