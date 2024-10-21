@@ -23,12 +23,14 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     await connectDB();
-    const settings = await SettingsModel.findOne(
+    let settings;
+
+    settings = await SettingsModel.findOne(
       { _id: "6703d33db86aa836f46946c6" },
       "-__v",
     );
     if (!settings) {
-      await SettingsModel.create({
+      settings = await SettingsModel.create({
         _id: "6703d33db86aa836f46946c6",
       });
     }

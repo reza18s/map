@@ -6,7 +6,7 @@ import { connectDB } from "@/configs/db";
 import PointsDataModel from "@/models/pointDataModel";
 
 // Map to keep track of running workers
-const workersMap = new Map();
+const workersMap: { [key: string]: Worker } = {};
 
 // Function to start a worker for a given point
 const startPointWorker = async (
@@ -15,7 +15,7 @@ const startPointWorker = async (
   data: string[] = [],
 ) => {
   // Check if the worker for the point is already running
-  if (workersMap.has(pointId)) {
+  if (workersMap[pointId]) {
     console.log(`Worker for point ${pointId} is already running.`);
     return; // Exit the function if the worker is already running
   }
@@ -32,7 +32,7 @@ const startPointWorker = async (
     workerData: { url, clientId: pointId, data: data },
   });
 
-  workersMap.set(pointId, worker); // Store worker in the map
+  workersMap[pointId] = worker; // Store worker in the map
 
   worker.on("message", async (msg) => {
     if (msg.status === "data") {
@@ -52,7 +52,7 @@ const startPointWorker = async (
   });
 
   worker.on("exit", async (code) => {
-    workersMap.delete(pointId); // Remove the worker from the map
+    delete workersMap[pointId]; // Remove the worker from the map
     if (code !== 0) {
       console.error(`Worker for ${point.name} exited with code ${code}`);
       await PointsModel.findByIdAndUpdate(pointId, {
@@ -68,14 +68,14 @@ const startPointWorker = async (
 
 // Function to shut down a worker for a given point
 const shutdownWorker = async (pointId: string) => {
-  const worker = workersMap.get(pointId);
+  const worker = workersMap[pointId];
   if (!worker) {
     console.error("Worker not found for this point");
     return;
   }
 
   worker.terminate(); // Gracefully terminate the worker
-  workersMap.delete(pointId); // Remove the worker from the map
+  delete workersMap[pointId]; // Remove the worker from the map
 
   await PointsModel.findByIdAndUpdate(pointId, {
     $set: { workerStatus: "inactive" },

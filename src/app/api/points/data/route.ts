@@ -55,3 +55,44 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
 }
+
+export async function DELETE(req: Request): Promise<Response> {
+  try {
+    // Ensure database is connected
+    await connectDB();
+
+    // Parse query parameters
+    const { searchParams } = new URL(req.url);
+    const startTime = searchParams.get("startTime");
+    const endTime = searchParams.get("endTime");
+
+    // Validate timestamps
+    if (!startTime || !endTime) {
+      return NextResponse.json(
+        { error: "startTime and endTime are required" },
+        { status: 400 },
+      );
+    }
+
+    // Convert timestamps to Date objects
+    const startDate = new Date(parseInt(startTime, 10));
+    const endDate = new Date(parseInt(endTime, 10));
+
+    // Query the database for points between the specified time range
+    const pointsData = await PointsDataModel.deleteMany({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    });
+    // Return the response as JSON
+    return NextResponse.json(pointsData);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching point data:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}

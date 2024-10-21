@@ -187,7 +187,6 @@ export const useAppStore = create<storeType>((set, get) => ({
 
     switch (lastAction.actionType) {
       case "create":
-        console.log("fuck");
         drawnItems.removeLayer(layer);
         if (lastAction.type == "polygon") {
           deleteData("/api/polygons", { id: item._id }).then(() => {
@@ -203,6 +202,21 @@ export const useAppStore = create<storeType>((set, get) => ({
 
         break;
       case "delete":
+        drawnItems.addLayer(layer);
+        if (lastAction.type == "polygon") {
+          putData("/api/polygons", { id: item._id, deletedAt: null }).then(
+            () => {
+              getAllPolygons();
+              setIsLoading(false);
+            },
+          );
+        } else if (lastAction.type == "polyline") {
+          putData("/api/lines", { id: item._id, deletedAt: null }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+        break;
       case "update":
     }
   },
@@ -261,6 +275,19 @@ export const useAppStore = create<storeType>((set, get) => ({
         }
         break;
       case "delete":
+        drawnItems.removeLayer(nextAction.layer);
+        if (nextAction.type == "polygon") {
+          deleteData("/api/polygons", { id: item._id }).then(() => {
+            getAllPolygons();
+            setIsLoading(false);
+          });
+        } else if (nextAction.type == "polyline") {
+          deleteData("/api/lines", { id: item._id }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+        break;
       case "update":
     }
   },

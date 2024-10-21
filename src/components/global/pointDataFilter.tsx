@@ -76,6 +76,9 @@ export const PointDataFilter = ({ point }: { point: IPoint }) => {
   useEffect(() => {
     drawnItems?.clearLayers();
     data.map((el) => {
+      if (!el.data.angle) {
+        return;
+      }
       const latlng = calculateDotPosition(
         +point.lat,
         +point.lng,
@@ -87,7 +90,7 @@ export const PointDataFilter = ({ point }: { point: IPoint }) => {
   }, [data]);
   return (
     <div className="flex flex-col gap-4 p-2">
-      <h2 className="text-lg font-semibold">Filter Point Data</h2>
+      <h2 className="text-lg font-semibold">Play back</h2>
 
       <DateRangePicker
         aria-label="Select date range"
@@ -116,7 +119,7 @@ export const PointDataFilter = ({ point }: { point: IPoint }) => {
         disabled={loading}
         className="h-6 bg-indigo-600 text-white"
       >
-        {loading ? <Spinner size="sm" /> : "Fetch Data"}
+        {loading ? <Spinner size="sm" /> : "playback"}
       </Button>
     </div>
   );

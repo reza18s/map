@@ -5,8 +5,9 @@ import { useModal } from "@/store/useModal";
 import { Modals } from "../modals";
 import { PointForm } from "../forms/pointForm";
 import { useAppStore } from "@/store/store";
-import { Eye, EyeOff, Menu } from "lucide-react";
+import { Eye, EyeOff, Menu, Trash } from "lucide-react";
 import { SidebarPoint } from "./SidebarPoint";
+import { DelPointDataModel } from "../modals/deletePointDataModel";
 export default function Sidebar() {
   const setOpen = useModal((state) => state.setOpen);
   const [openSidebar, setOpenSidebar] = useState(false);
@@ -48,6 +49,13 @@ export default function Sidebar() {
         </div>
         <div className="">
           <button
+            onClick={() => setOpen(<DelPointDataModel></DelPointDataModel>)}
+            className={`${openSidebar ? "h-10 w-full px-4" : "size-10  justify-center"} my-3 flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          >
+            <Trash></Trash>
+            {openSidebar && <span>Delete point data</span>}
+          </button>
+          <button
             onClick={() =>
               setOpen(
                 <Modals title="add new point">
@@ -76,19 +84,16 @@ export default function Sidebar() {
                 d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
               />
             </svg>
-
             {openSidebar && <span>Add new point</span>}
           </button>
-
           <button
             onClick={() => setShowPointList(!showPointList)}
             className={`${openSidebar ? "h-10 w-full px-4" : "size-10  justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
           >
             {showPointList ? <EyeOff></EyeOff> : <Eye></Eye>}
-
             {openSidebar && (
               <span>
-                {showPointList ? "Hide points list" : "Show points list"}
+                {showPointList ? "Hide target points" : "Show target points"}
               </span>
             )}
           </button>

@@ -100,16 +100,13 @@ export default function Map() {
             <>
               <MarkerClusterGroup>
                 {points.length > 0 &&
-                  points.map(
-                    (point) =>
-                      point.status && (
-                        <Mark
-                          key={point._id}
-                          point={point}
-                          setPointLabel={setPointLabel}
-                        ></Mark>
-                      ),
-                  )}
+                  points.map((point) => (
+                    <Mark
+                      key={point._id}
+                      point={point}
+                      setPointLabel={setPointLabel}
+                    ></Mark>
+                  ))}
               </MarkerClusterGroup>
             </>
           )}

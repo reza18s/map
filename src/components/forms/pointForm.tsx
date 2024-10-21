@@ -30,12 +30,12 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
   );
   const getAllPoints = useAppStore((state) => state.getAllPoints);
   const settings = useAppStore((state) => state.settings);
-  console.log(settings);
   const {
     register,
     handleSubmit,
     reset,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<z.infer<typeof pointObject>>({
     resolver: zodResolver(pointObject),
@@ -49,6 +49,8 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       active: data.point?.active || false,
       connect: data.point?.connect || false,
       status: data.point?.status || false,
+      port: data.point?.port || 5000,
+      requireData: data.point?.requireData || [],
       level: data.point?.level || 0,
     },
   });
@@ -76,6 +78,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           setIsLoading(false);
         });
     } else {
+      console.log(settings);
       setIsLoading(true);
       postData("/api/points", { ...newPoint })
         .then(() => {
@@ -166,20 +169,24 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           />
           <MultipleSelector
             defaultOptions={OPTIONS}
-            placeholder="Select frameworks you like..."
+            placeholder="choose item for point"
             className="bg-white"
             emptyIndicator={
               <p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">
                 no results found.
               </p>
             }
+            value={getValues("requireData").map((el) => ({
+              label: el,
+              value: el,
+            }))}
             onChange={(e) => {
               const data = e.map((e) => e.value);
               setValue("requireData", data);
             }}
           />
           <Select
-            label="Choose Icon"
+            label="point type"
             placeholder="Select an icon"
             className="text-lg font-semibold "
             isRequired
