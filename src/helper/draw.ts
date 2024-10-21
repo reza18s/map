@@ -230,6 +230,14 @@ export const Draw = async (map: L.Map) => {
       if (layer instanceof L.Polygon) {
         deleteData("/api/polygons", { id })
           .then(() => {
+            const item = useAppStore
+              .getState()
+              .polygons.find((el) => el._id === id);
+            useAppStore.getState().pushToHistory({
+              actionType: "delete",
+              type: "polygon",
+              polygon: item,
+            });
             drawLayers();
           })
           .catch((err) => {
@@ -239,6 +247,14 @@ export const Draw = async (map: L.Map) => {
       } else if (layer instanceof L.Polyline) {
         deleteData("/api/lines", { id })
           .then(() => {
+            const item = useAppStore
+              .getState()
+              .lines.find((el) => el._id === id);
+            useAppStore.getState().pushToHistory({
+              actionType: "delete",
+              type: "polyline",
+              line: item,
+            });
             drawLayers();
           })
           .catch((err) => {
