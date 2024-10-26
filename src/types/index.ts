@@ -12,7 +12,7 @@ export interface IPoint {
   status: boolean;
   port: number;
   requireData: string[];
-
+  ip: string;
   connect: boolean;
   level: number;
 }

@@ -10,6 +10,7 @@ const workersMap: { [key: string]: Worker } = {};
 
 // Function to start a worker for a given point
 const startPointWorker = async (
+  ip: string,
   pointId: string,
   port: number,
   data: string[] = [],
@@ -26,7 +27,7 @@ const startPointWorker = async (
     throw new Error("Point not found");
   }
 
-  const url = `http://localhost:${port || 5000}`;
+  const url = `http://${ip || "127.0.0.1"}:${port || 5000}`;
 
   const worker = new Worker("./src/helper/clientWorker.js", {
     workerData: { url, clientId: pointId, data: data },

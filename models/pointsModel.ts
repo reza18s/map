@@ -41,6 +41,10 @@ const schema = new mongoose.Schema({
     type: Array,
     default: [],
   },
+  ip: {
+    type: String,
+    default: "127.0.0.1",
+  },
   port: {
     type: Number,
     default: 5000,

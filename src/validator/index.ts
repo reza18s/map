@@ -9,6 +9,7 @@ export const pointObject = z.object({
   frequency: z.number(),
   iconType: z.string(),
   active: z.boolean(),
+  ip: z.string(),
   status: z.boolean(),
   port: z.number(),
   requireData: z.array(z.string()),

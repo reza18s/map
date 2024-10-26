@@ -64,7 +64,7 @@ export const Mark = ({
 
   useEffect(() => {
     if (point.connect) {
-      startPointWorker(point._id, point.port, point.requireData);
+      startPointWorker(point.ip, point._id, point.port, point.requireData);
     }
   }, [point.connect]);
   useEffect(() => {

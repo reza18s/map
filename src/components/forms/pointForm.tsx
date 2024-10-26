@@ -49,6 +49,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       active: data.point?.active || false,
       connect: data.point?.connect || false,
       status: data.point?.status || false,
+      ip: data.point?.ip || "127.0.0.1",
       port: data.point?.port || 5000,
       requireData: data.point?.requireData || [],
       level: data.point?.level || 0,
@@ -157,6 +158,16 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.level ? errors.level.message : ""}
             {...register("level", { required: true, valueAsNumber: true })}
           />{" "}
+          <Input
+            isRequired
+            label="ip"
+            labelPlacement="outside"
+            className="text-lg font-semibold"
+            placeholder="Enter point ip"
+            isInvalid={!!errors.ip}
+            errorMessage={errors.ip ? errors.ip.message : ""}
+            {...register("ip", { required: true })}
+          />
           <Input
             isRequired
             label="port"
