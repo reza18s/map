@@ -169,12 +169,14 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     await connectDB();
-    const settings = await SettingsModel.findOne(
+    let settings;
+
+    settings = await SettingsModel.findOne(
       { _id: "6703d33db86aa836f46946c6" },
       "-__v",
     );
-    if (settings) {
-      await SettingsModel.create({
+    if (!settings) {
+      settings = await SettingsModel.create({
         _id: "6703d33db86aa836f46946c6",
       });
     }
@@ -246,6 +248,106 @@ export async function DELETE(req: Request) {
   }
 }
 
+// File: src/app/api/points/data/route.ts
+// app/api/points/data/route.ts
+
+import { NextResponse } from "next/server";
+import PointsDataModel from "@/models/pointDataModel"; // Adjust the import path as necessary
+import { connectDB } from "@/configs/db"; // Database connection helper
+
+// Define the shape of your response data (optional but recommended)
+interface PointData {
+  data: {
+    timestamp: Date;
+    [key: string]: any; // Replace with actual structure of your point data
+  };
+  [key: string]: any; // Additional properties on your data model
+}
+
+export async function GET(req: Request): Promise<Response> {
+  try {
+    // Ensure database is connected
+    await connectDB();
+
+    // Parse query parameters
+    const { searchParams } = new URL(req.url);
+    const startTime = searchParams.get("startTime");
+    const endTime = searchParams.get("endTime");
+    const id = searchParams.get("id");
+
+    // Validate timestamps
+    if (!startTime || !endTime) {
+      return NextResponse.json(
+        { error: "startTime and endTime are required" },
+        { status: 400 },
+      );
+    }
+
+    // Convert timestamps to Date objects
+    const startDate = new Date(parseInt(startTime, 10));
+    const endDate = new Date(parseInt(endTime, 10));
+
+    // Query the database for points between the specified time range
+    const pointsData: PointData[] = await PointsDataModel.find({
+      "data.clientId": id,
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    });
+    // Return the response as JSON
+    return NextResponse.json(pointsData);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching point data:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(req: Request): Promise<Response> {
+  try {
+    // Ensure database is connected
+    await connectDB();
+
+    // Parse query parameters
+    const { searchParams } = new URL(req.url);
+    const startTime = searchParams.get("startTime");
+    const endTime = searchParams.get("endTime");
+
+    // Validate timestamps
+    if (!startTime || !endTime) {
+      return NextResponse.json(
+        { error: "startTime and endTime are required" },
+        { status: 400 },
+      );
+    }
+
+    // Convert timestamps to Date objects
+    const startDate = new Date(parseInt(startTime, 10));
+    const endDate = new Date(parseInt(endTime, 10));
+
+    // Query the database for points between the specified time range
+    const pointsData = await PointsDataModel.deleteMany({
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    });
+    // Return the response as JSON
+    return NextResponse.json(pointsData);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching point data:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
 // File: src/app/api/points/route.ts
 import { connectDB } from "@/configs/db";
 import { startPointWorker } from "@/helper/workerManager";
@@ -271,8 +373,6 @@ export async function POST(req: Request) {
       status,
       level,
     } = body;
-
-    console.log("fuk");
     const points = await PointsModel.create({
       lat,
       lng,
@@ -574,6 +674,61 @@ export const calculateAngle = (point1: L.LatLng, point2: L.LatLng): number => {
   const angle = (Math.atan2(Δφ, Δλ) * 180) / Math.PI; // Angle in degrees
   return angle;
 };
+export const calculateDotPosition = (
+  lat: number,
+  lng: number,
+  angle: number,
+  distance: number = 500, // distance in meters
+): [number, number] => {
+  const R = 6371000; // Radius of the Earth in meters
+  const angularDistance = distance / R; // Angular distance in radians
+  const angleRad = (angle * Math.PI) / 180; // Convert the angle to radians
+
+  const newLat = Math.asin(
+    Math.sin((lat * Math.PI) / 180) * Math.cos(angularDistance) +
+      Math.cos((lat * Math.PI) / 180) *
+        Math.sin(angularDistance) *
+        Math.cos(angleRad),
+  );
+
+  const newLng =
+    ((lng * Math.PI) / 180 +
+      Math.atan2(
+        Math.sin(angleRad) *
+          Math.sin(angularDistance) *
+          Math.cos((lat * Math.PI) / 180),
+        Math.cos(angularDistance) -
+          Math.sin((lat * Math.PI) / 180) * Math.sin(newLat),
+      )) *
+    (180 / Math.PI);
+
+  return [newLat * (180 / Math.PI), newLng];
+};
+
+// File: src/helper/drawDots.ts
+"use client";
+import { useAppStore } from "@/store/store";
+import L from "leaflet";
+import { calculateDotPosition } from "./math";
+
+// Draw function to handle both lines and polygons
+export const DrawDots = async ({
+  lat,
+  lng,
+  data,
+}: {
+  lat: number;
+  lng: number;
+  data: { data: { angle: number } }[];
+}) => {
+  const drawnItems = new L.FeatureGroup();
+  const map = useAppStore.getState().map;
+  map?.addLayer(drawnItems);
+  const dots = data.map((el) => {
+    const latlng = calculateDotPosition(+lat, +lng, +el.data.angle);
+    const layer = new L.CircleMarker(latlng, { radius: 1 });
+  });
+};
 
 // File: src/helper/clientWorker.js
 "use server";
@@ -831,6 +986,14 @@ export const Draw = async (map: L.Map) => {
       if (layer instanceof L.Polygon) {
         deleteData("/api/polygons", { id })
           .then(() => {
+            const item = useAppStore
+              .getState()
+              .polygons.find((el) => el._id === id);
+            useAppStore.getState().pushToHistory({
+              actionType: "delete",
+              type: "polygon",
+              polygon: item,
+            });
             drawLayers();
           })
           .catch((err) => {
@@ -840,6 +1003,14 @@ export const Draw = async (map: L.Map) => {
       } else if (layer instanceof L.Polyline) {
         deleteData("/api/lines", { id })
           .then(() => {
+            const item = useAppStore
+              .getState()
+              .lines.find((el) => el._id === id);
+            useAppStore.getState().pushToHistory({
+              actionType: "delete",
+              type: "polyline",
+              line: item,
+            });
             drawLayers();
           })
           .catch((err) => {
@@ -876,59 +1047,59 @@ export const controlSaveTiles = ({
   if (tileLayerOffline.addTo) {
     tileLayerOffline.addTo(map);
   }
-  const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
-    position: "topright",
-    zoomlevels: [11, 12, 13, 14, 15, 16],
-    confirm(layer: any, succescallback: () => void) {
-      if (
-        window.confirm(
-          `Are you sure you want to download ${layer._tilesforSave.length} tiles?`,
-        )
-      ) {
-        succescallback();
-      }
-    },
-    confirmRemoval(layer: any, successCallback: () => void) {
-      if (window.confirm("Are you sure you want to remove all tiles?")) {
-        successCallback();
-      }
-    },
-    saveText: `<div class="w-full h-full flex justify-center items-center">
-  <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke-width="1.5"
-      stroke="currentColor"
-      class="size-5"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-      />
-    </svg>
-  </div>`,
-    rmText: `<div class="w-full h-full flex justify-center items-center">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="1.5"
-        stroke="currentColor"
-        class="size-5"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-        />
-      </svg>
-    </div>`,
-  });
-  if (controlSaveTiles.addTo) {
-    controlSaveTiles.addTo(map);
-  }
+  // const controlSaveTiles = L.control.savetiles(tileLayerOffline, {
+  //   position: "topright",
+  //   zoomlevels: [11, 12, 13, 14, 15, 16],
+  //   confirm(layer: any, succescallback: () => void) {
+  //     if (
+  //       window.confirm(
+  //         `Are you sure you want to download ${layer._tilesforSave.length} tiles?`,
+  //       )
+  //     ) {
+  //       succescallback();
+  //     }
+  //   },
+  //   confirmRemoval(layer: any, successCallback: () => void) {
+  //     if (window.confirm("Are you sure you want to remove all tiles?")) {
+  //       successCallback();
+  //     }
+  //   },
+  //   saveText: `<div class="w-full h-full flex justify-center items-center">
+  // <svg
+  //     xmlns="http://www.w3.org/2000/svg"
+  //     fill="none"
+  //     viewBox="0 0 24 24"
+  //     stroke-width="1.5"
+  //     stroke="currentColor"
+  //     class="size-5"
+  //   >
+  //     <path
+  //       stroke-linecap="round"
+  //       stroke-linejoin="round"
+  //       d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+  //     />
+  //   </svg>
+  // </div>`,
+  //   rmText: `<div class="w-full h-full flex justify-center items-center">
+  //     <svg
+  //       xmlns="http://www.w3.org/2000/svg"
+  //       fill="none"
+  //       viewBox="0 0 24 24"
+  //       stroke-width="1.5"
+  //       stroke="currentColor"
+  //       class="size-5"
+  //     >
+  //       <path
+  //         stroke-linecap="round"
+  //         stroke-linejoin="round"
+  //         d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+  //       />
+  //     </svg>
+  //   </div>`,
+  // });
+  // if (controlSaveTiles.addTo) {
+  //   controlSaveTiles.addTo(map);
+  // }
 
   let progress: number;
   tileLayerOffline.on("savestart", (e: any) => {
@@ -950,16 +1121,17 @@ import { connectDB } from "@/configs/db";
 import PointsDataModel from "@/models/pointDataModel";
 
 // Map to keep track of running workers
-const workersMap = new Map();
+const workersMap: { [key: string]: Worker } = {};
 
 // Function to start a worker for a given point
 const startPointWorker = async (
+  ip: string,
   pointId: string,
   port: number,
   data: string[] = [],
 ) => {
   // Check if the worker for the point is already running
-  if (workersMap.has(pointId)) {
+  if (workersMap[pointId]) {
     console.log(`Worker for point ${pointId} is already running.`);
     return; // Exit the function if the worker is already running
   }
@@ -970,14 +1142,13 @@ const startPointWorker = async (
     throw new Error("Point not found");
   }
 
-  const url = `http://localhost:${port || 5000}`;
-  const clientId = Math.random().toString(36).substr(2, 9);
+  const url = `http://${ip || "127.0.0.1"}:${port || 5000}`;
 
   const worker = new Worker("./src/helper/clientWorker.js", {
-    workerData: { url, clientId, data: data },
+    workerData: { url, clientId: pointId, data: data },
   });
 
-  workersMap.set(pointId, worker); // Store worker in the map
+  workersMap[pointId] = worker; // Store worker in the map
 
   worker.on("message", async (msg) => {
     if (msg.status === "data") {
@@ -997,7 +1168,7 @@ const startPointWorker = async (
   });
 
   worker.on("exit", async (code) => {
-    workersMap.delete(pointId); // Remove the worker from the map
+    delete workersMap[pointId]; // Remove the worker from the map
     if (code !== 0) {
       console.error(`Worker for ${point.name} exited with code ${code}`);
       await PointsModel.findByIdAndUpdate(pointId, {
@@ -1013,13 +1184,14 @@ const startPointWorker = async (
 
 // Function to shut down a worker for a given point
 const shutdownWorker = async (pointId: string) => {
-  const worker = workersMap.get(pointId);
+  const worker = workersMap[pointId];
   if (!worker) {
-    throw new Error("Worker not found for this point");
+    console.error("Worker not found for this point");
+    return;
   }
 
   worker.terminate(); // Gracefully terminate the worker
-  workersMap.delete(pointId); // Remove the worker from the map
+  delete workersMap[pointId]; // Remove the worker from the map
 
   await PointsModel.findByIdAndUpdate(pointId, {
     $set: { workerStatus: "inactive" },
@@ -1425,7 +1597,6 @@ export const useAppStore = create<storeType>((set, get) => ({
 
     switch (lastAction.actionType) {
       case "create":
-        console.log("fuck");
         drawnItems.removeLayer(layer);
         if (lastAction.type == "polygon") {
           deleteData("/api/polygons", { id: item._id }).then(() => {
@@ -1441,6 +1612,21 @@ export const useAppStore = create<storeType>((set, get) => ({
 
         break;
       case "delete":
+        drawnItems.addLayer(layer);
+        if (lastAction.type == "polygon") {
+          putData("/api/polygons", { id: item._id, deletedAt: null }).then(
+            () => {
+              getAllPolygons();
+              setIsLoading(false);
+            },
+          );
+        } else if (lastAction.type == "polyline") {
+          putData("/api/lines", { id: item._id, deletedAt: null }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+        break;
       case "update":
     }
   },
@@ -1499,6 +1685,19 @@ export const useAppStore = create<storeType>((set, get) => ({
         }
         break;
       case "delete":
+        drawnItems.removeLayer(nextAction.layer);
+        if (nextAction.type == "polygon") {
+          deleteData("/api/polygons", { id: item._id }).then(() => {
+            getAllPolygons();
+            setIsLoading(false);
+          });
+        } else if (nextAction.type == "polyline") {
+          deleteData("/api/lines", { id: item._id }).then(() => {
+            getAllLines();
+            setIsLoading(false);
+          });
+        }
+        break;
       case "update":
     }
   },
@@ -1579,7 +1778,7 @@ export interface IPoint {
   status: boolean;
   port: number;
   requireData: string[];
-
+  ip: string;
   connect: boolean;
   level: number;
 }
@@ -1672,6 +1871,7 @@ export const pointObject = z.object({
   frequency: z.number(),
   iconType: z.string(),
   active: z.boolean(),
+  ip: z.string(),
   status: z.boolean(),
   port: z.number(),
   requireData: z.array(z.string()),
@@ -1729,6 +1929,134 @@ export const PointAction = ({ data }: { data: IPoint }) => {
           <Trash2 />
         </button>
       </Tooltip>
+    </div>
+  );
+};
+
+// File: src/components/global/pointDataFilter.tsx
+import { getData } from "@/services/API";
+import { useAppStore } from "@/store/store";
+import { IPoint } from "@/types";
+import {
+  Button,
+  DateRangePicker,
+  DateValue,
+  RangeValue,
+  Spinner,
+  TimeInput,
+  TimeInputValue,
+} from "@nextui-org/react";
+import { useEffect, useState } from "react";
+
+import L from "leaflet";
+import { calculateDotPosition } from "@/helper/math";
+export const PointDataFilter = ({ point }: { point: IPoint }) => {
+  const [dateRange, setDateRange] = useState<RangeValue<DateValue>>();
+  const [fromTime, setFromTime] = useState<TimeInputValue>();
+  const [toTime, setToTime] = useState<TimeInputValue>();
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<{ data: { angle: number } }[]>([]);
+  const [drawnItems, setDrawnItems] = useState<L.FeatureGroup<any>>();
+
+  // Function to fetch data
+  const fetchData = async () => {
+    if (!dateRange?.start || !dateRange?.end) {
+      alert("Please select a date range");
+      return;
+    }
+
+    setLoading(true);
+
+    // Convert dates to timestamps
+    // @ts-expect-error the
+    const startDate = new Date(dateRange.start);
+    // @ts-expect-error the
+    const endDate = new Date(dateRange.end);
+
+    // Add the times to the date
+    if (fromTime) {
+      startDate.setHours(fromTime.hour, fromTime.minute, 0, 0);
+    } else {
+      startDate.setHours(0, 0, 0, 0);
+    }
+
+    if (toTime) {
+      endDate.setHours(toTime.hour, toTime.minute, 0, 0);
+    } else {
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+
+    // Fetch data from the backend API
+    try {
+      const response = await getData(
+        `/api/points/data?id=${point._id}&startTime=${startTimestamp}&endTime=${endTimestamp}`,
+        {},
+      );
+      const result = response.data;
+      setData(result);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    const drawnItems = new L.FeatureGroup();
+    const map = useAppStore.getState().map;
+    map?.addLayer(drawnItems);
+    setDrawnItems(drawnItems);
+  }, []);
+  useEffect(() => {
+    drawnItems?.clearLayers();
+    data.map((el) => {
+      if (!el.data.angle) {
+        return;
+      }
+      const latlng = calculateDotPosition(
+        +point.lat,
+        +point.lng,
+        +el.data.angle,
+      );
+      const layer = new L.CircleMarker(latlng, { radius: 1 });
+      drawnItems?.addLayer(layer);
+    });
+  }, [data]);
+  return (
+    <div className="flex flex-col gap-4 p-2">
+      <h2 className="text-lg font-semibold">Play back</h2>
+
+      <DateRangePicker
+        aria-label="Select date range"
+        value={dateRange}
+        size="sm"
+        onChange={(range) => setDateRange(range)}
+      />
+
+      <div className="flex gap-4">
+        <TimeInput
+          label="From"
+          size="sm"
+          value={fromTime}
+          onChange={(time) => setFromTime(time)}
+        />
+        <TimeInput
+          label="To"
+          size="sm"
+          value={toTime}
+          onChange={(time) => setToTime(time)}
+        />
+      </div>
+
+      <Button
+        onClick={fetchData}
+        disabled={loading}
+        className="h-6 bg-indigo-600 text-white"
+      >
+        {loading ? <Spinner size="sm" /> : "playback"}
+      </Button>
     </div>
   );
 };
@@ -1882,6 +2210,115 @@ export const DeletePointModal = ({
             remove point
           </Button>
         </div>
+      </ModalFooter>
+    </Modals>
+  );
+};
+
+// File: src/components/modals/deletePointDataModel.tsx
+"use client";
+import React, { useEffect, useState } from "react";
+import { Modals } from ".";
+import {
+  Button,
+  DateRangePicker,
+  DateValue,
+  ModalBody,
+  ModalFooter,
+  RangeValue,
+  Spinner,
+  TimeInput,
+  TimeInputValue,
+} from "@nextui-org/react";
+import { useModal } from "@/store/useModal";
+import { deleteData } from "@/services/API";
+export const DelPointDataModel = () => {
+  const setClose = useModal((state) => state.setClose);
+  const [dateRange, setDateRange] = useState<RangeValue<DateValue>>();
+  const [fromTime, setFromTime] = useState<TimeInputValue>();
+  const [toTime, setToTime] = useState<TimeInputValue>();
+  const [loading, setLoading] = useState(false);
+  // Function to fetch data
+  const fetchData = async () => {
+    if (!dateRange?.start || !dateRange?.end) {
+      alert("Please select a date range");
+      return;
+    }
+    setLoading(true);
+    // Convert dates to timestamps
+    // @ts-expect-error the
+    const startDate = new Date(dateRange.start);
+    // @ts-expect-error the
+    const endDate = new Date(dateRange.end);
+    // Add the times to the date
+    if (fromTime) {
+      startDate.setHours(fromTime.hour, fromTime.minute, 0, 0);
+    } else {
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (toTime) {
+      endDate.setHours(toTime.hour, toTime.minute, 0, 0);
+    } else {
+      endDate.setHours(23, 59, 59, 999);
+    }
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+    // Fetch data from the backend API
+    try {
+      await deleteData(
+        `/api/points/data?startTime=${startTimestamp}&endTime=${endTimestamp}`,
+        {},
+      );
+      setClose();
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Modals title={"delete point data"}>
+      <ModalBody>
+        <div className="flex flex-col gap-4 p-2">
+          <DateRangePicker
+            aria-label="Select date range"
+            value={dateRange}
+            size="sm"
+            onChange={(range) => setDateRange(range)}
+          />
+
+          <div className="flex gap-4">
+            <TimeInput
+              label="From"
+              size="sm"
+              value={fromTime}
+              onChange={(time) => setFromTime(time)}
+            />
+            <TimeInput
+              label="To"
+              size="sm"
+              value={toTime}
+              onChange={(time) => setToTime(time)}
+            />
+          </div>
+        </div>
+      </ModalBody>
+      <ModalFooter className="flex items-center">
+        <Button
+          color="danger"
+          variant="light"
+          type="button"
+          onClick={() => setClose()}
+        >
+          Close
+        </Button>
+        <Button
+          onClick={fetchData}
+          disabled={loading}
+          className="h-10 bg-red-500 text-white"
+        >
+          {loading ? <Spinner size="sm" /> : "delete Data"}
+        </Button>
       </ModalFooter>
     </Modals>
   );
@@ -2310,16 +2747,13 @@ export default function Map() {
             <>
               <MarkerClusterGroup>
                 {points.length > 0 &&
-                  points.map(
-                    (point) =>
-                      point.status && (
-                        <Mark
-                          key={point._id}
-                          point={point}
-                          setPointLabel={setPointLabel}
-                        ></Mark>
-                      ),
-                  )}
+                  points.map((point) => (
+                    <Mark
+                      key={point._id}
+                      point={point}
+                      setPointLabel={setPointLabel}
+                    ></Mark>
+                  ))}
               </MarkerClusterGroup>
             </>
           )}
@@ -2380,7 +2814,7 @@ import { useModal } from "@/store/useModal";
 import { startPointWorker } from "@/helper/workerManager";
 
 import L from "leaflet";
-let currentLine: L.Polyline<any>;
+const currentLine: { [key: string]: L.Polyline<any> } = {};
 export const Mark = ({
   point,
   setPointLabel,
@@ -2390,9 +2824,6 @@ export const Mark = ({
 }) => {
   const { getAllPoints, map } = useAppStore((state) => state);
   const { setOpen } = useModal((state) => state);
-
-  // State to hold the single line to display
-
   const changeStatusHandler = (id: string) => {
     postData("/api/points/change-status", { id }).then(() => {
       getAllPoints();
@@ -2433,105 +2864,121 @@ export const Mark = ({
 
   useEffect(() => {
     if (point.connect) {
-      startPointWorker(point._id, point.port, point.requireData);
+      startPointWorker(point.ip, point._id, point.port, point.requireData);
     }
   }, [point.connect]);
+  useEffect(() => {
+    if (point.status) {
+      if (currentLine[point._id]) {
+        return;
+      }
+    } else if (currentLine[point._id]) {
+      map?.removeLayer(currentLine[point._id]);
+      delete currentLine[point._id];
+    }
+  }, [point]);
   return (
     <>
-      <Marker
-        key={point._id}
-        icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
-        position={[point.lat, point.lng]}
-        eventHandlers={{
-          mouseover: () => {
-            setPointLabel(point);
-          },
-          mouseout: () => {
-            setPointLabel({});
-          },
-          click: () => {
-            // Remove the existing line before adding a new one
+      {point.status && (
+        <Marker
+          key={point._id}
+          icon={getPointIcon(point.iconType)} // Adjusted to pass correct icon type
+          position={[point.lat, point.lng]}
+          eventHandlers={{
+            mouseover: () => {
+              setPointLabel(point);
+            },
+            mouseout: () => {
+              setPointLabel({});
+            },
+            click: () => {
+              // Remove the existing line before adding a new one
+              if (currentLine[point._id]) {
+                return;
+              }
+              // Calculate the endpoint for the new line based on the point's angle
+              const endPoint = calculateEndpoint(
+                point.lat,
+                point.lng,
+                point.level,
+              );
 
-            // Calculate the endpoint for the new line based on the point's angle
-            const endPoint = calculateEndpoint(
-              point.lat,
-              point.lng,
-              point.level,
-            );
+              // Create a new line from the point to the calculated endpoint
+              currentLine[point._id] = L.polyline(
+                [[point.lat, point.lng], endPoint],
+                {
+                  color: "blue",
+                },
+              ).addTo(map!);
+            },
+          }}
+        >
+          <Tooltip direction="bottom" offset={[0, 10]} permanent>
+            {point.name}
+          </Tooltip>
+          <Popup>
+            <div className="flex w-full flex-col gap-1">
+              <span>name: {point.name}</span>
+              <span>lat: {point.lat}</span>
+              <span>lng: {point.lng}</span>
+              <span>frequency: {point.frequency}</span>
+              <span>status: {point.status}</span>
 
-            // Create a new line from the point to the calculated endpoint
-            if (currentLine) {
-              map?.removeLayer(currentLine); // Remove the existing line
-            }
-            currentLine = L.polyline([[point.lat, point.lng], endPoint], {
-              color: "blue",
-            }).addTo(map!); // Add new line to the map
-          },
-        }}
-      >
-        <Tooltip direction="bottom" offset={[0, 10]} permanent>
-          {point.name}
-        </Tooltip>
-        <Popup>
-          <div className="flex w-full flex-col gap-1">
-            <span>name: {point.name}</span>
-            <span>lat: {point.lat}</span>
-            <span>lng: {point.lng}</span>
-            <span>frequency: {point.frequency}</span>
-            <span>status: {point.status}</span>
-
-            <div className="mt-2 flex w-full items-center justify-center gap-3">
-              <button
-                onClick={() =>
-                  setOpen(
-                    <Modals title="edit point">
-                      <PointForm type="edit"></PointForm>
-                    </Modals>,
-                    { point },
-                  )
-                }
-                className="cursor-pointer text-lg text-default-400 active:opacity-50"
-              >
-                <EditIcon />
-              </button>
-
-              <button
-                onClick={() =>
-                  setOpen(
-                    <DeletePointModal
-                      data={point}
-                      url="/api/points/del"
-                    ></DeletePointModal>,
-                  )
-                }
-                className="cursor-pointer text-lg text-danger active:opacity-50"
-              >
-                <Trash2 />
-              </button>
-
-              <button
-                onClick={() => changeStatusHandler(point._id)}
-                className="cursor-pointer text-lg text-warning active:opacity-50"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="1.5"
-                  stroke="currentColor"
-                  className="size-5"
+              <div className="mt-2 flex w-full items-center justify-center gap-3">
+                <button
+                  onClick={() =>
+                    setOpen(
+                      <Modals title="edit point">
+                        <PointForm type="edit"></PointForm>
+                      </Modals>,
+                      { point },
+                    )
+                  }
+                  className="cursor-pointer text-lg text-default-400 active:opacity-50"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
-                  />
-                </svg>
-              </button>
+                  <EditIcon />
+                </button>
+
+                <button
+                  onClick={() => {
+                    map?.removeLayer(currentLine[point._id]);
+                    delete currentLine[point._id];
+                    setOpen(
+                      <DeletePointModal
+                        data={point}
+                        url="/api/points/del"
+                      ></DeletePointModal>,
+                    );
+                  }}
+                  className="cursor-pointer text-lg text-danger active:opacity-50"
+                >
+                  <Trash2 />
+                </button>
+
+                <button
+                  onClick={() => changeStatusHandler(point._id)}
+                  className="cursor-pointer text-lg text-warning active:opacity-50"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="size-5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-        </Popup>
-      </Marker>
+          </Popup>
+        </Marker>
+      )}
     </>
   );
 };
@@ -2589,6 +3036,7 @@ import { Chip } from "@nextui-org/react";
 import { statusColorMap } from "../map/Table";
 import { shutdownWorker } from "@/helper/workerManager";
 import { Chart } from "./chart";
+import { PointDataFilter } from "../global/pointDataFilter";
 
 export const SidebarPoint = ({
   points,
@@ -2730,6 +3178,8 @@ export const SidebarPoint = ({
                     </button>
                   </div>
                 </div>
+
+                <PointDataFilter point={point}></PointDataFilter>
                 <Chart point={point}></Chart>
               </div>
             </AccordionContent>
@@ -2748,9 +3198,9 @@ import { useModal } from "@/store/useModal";
 import { Modals } from "../modals";
 import { PointForm } from "../forms/pointForm";
 import { useAppStore } from "@/store/store";
-import { Eye, EyeOff, Menu } from "lucide-react";
+import { Eye, EyeOff, Menu, Trash } from "lucide-react";
 import { SidebarPoint } from "./SidebarPoint";
-
+import { DelPointDataModel } from "../modals/deletePointDataModel";
 export default function Sidebar() {
   const setOpen = useModal((state) => state.setOpen);
   const [openSidebar, setOpenSidebar] = useState(false);
@@ -2792,6 +3242,13 @@ export default function Sidebar() {
         </div>
         <div className="">
           <button
+            onClick={() => setOpen(<DelPointDataModel></DelPointDataModel>)}
+            className={`${openSidebar ? "h-10 w-full px-4" : "size-10  justify-center"} my-3 flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
+          >
+            <Trash></Trash>
+            {openSidebar && <span>Delete point data</span>}
+          </button>
+          <button
             onClick={() =>
               setOpen(
                 <Modals title="add new point">
@@ -2820,19 +3277,16 @@ export default function Sidebar() {
                 d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
               />
             </svg>
-
             {openSidebar && <span>Add new point</span>}
           </button>
-
           <button
             onClick={() => setShowPointList(!showPointList)}
             className={`${openSidebar ? "h-10 w-full px-4" : "size-10  justify-center"} flex items-center gap-2 overflow-hidden rounded-xl bg-indigo-200 font-bold text-indigo-600 transition-all duration-300`}
           >
             {showPointList ? <EyeOff></EyeOff> : <Eye></Eye>}
-
             {openSidebar && (
               <span>
-                {showPointList ? "Hide points list" : "Show points list"}
+                {showPointList ? "Hide target points" : "Show target points"}
               </span>
             )}
           </button>
@@ -2882,7 +3336,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "focus:ring-ring inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
   {
     variants: {
       variant: {
@@ -2891,7 +3345,7 @@ const badgeVariants = cva(
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/80 border-transparent",
         outline: "text-foreground",
       },
     },
@@ -2914,15 +3368,16 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 export { Badge, badgeVariants }
 
 // File: src/components/ui/command.tsx
-"use client"
+/* eslint-disable react/prop-types */
+"use client";
 
-import * as React from "react"
-import { type DialogProps } from "@radix-ui/react-dialog"
-import { Command as CommandPrimitive } from "cmdk"
-import { Search } from "lucide-react"
+import * as React from "react";
+import { type DialogProps } from "@radix-ui/react-dialog";
+import { Command as CommandPrimitive } from "cmdk";
+import { Search } from "lucide-react";
 
-import { cn } from "@/lib/utils"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -2931,13 +3386,13 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
-      className
+      "bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md",
+      className,
     )}
     {...props}
   />
-))
-Command.displayName = CommandPrimitive.displayName
+));
+Command.displayName = CommandPrimitive.displayName;
 
 interface CommandDialogProps extends DialogProps {}
 
@@ -2945,32 +3400,32 @@ const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
       <DialogContent className="overflow-hidden p-0 shadow-lg">
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command className="[&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:size-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:size-5">
           {children}
         </Command>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
-  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+  <div className="flex items-center border-b px-3">
+    <Search className="mr-2 size-4 shrink-0 opacity-50" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
-        className
+        "placeholder:text-muted-foreground flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        className,
       )}
       {...props}
     />
   </div>
-))
+));
 
-CommandInput.displayName = CommandPrimitive.Input.displayName
+CommandInput.displayName = CommandPrimitive.Input.displayName;
 
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
@@ -2981,9 +3436,9 @@ const CommandList = React.forwardRef<
     className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
     {...props}
   />
-))
+));
 
-CommandList.displayName = CommandPrimitive.List.displayName
+CommandList.displayName = CommandPrimitive.List.displayName;
 
 const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
@@ -2994,9 +3449,9 @@ const CommandEmpty = React.forwardRef<
     className="py-6 text-center text-sm"
     {...props}
   />
-))
+));
 
-CommandEmpty.displayName = CommandPrimitive.Empty.displayName
+CommandEmpty.displayName = CommandPrimitive.Empty.displayName;
 
 const CommandGroup = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Group>,
@@ -3005,14 +3460,14 @@ const CommandGroup = React.forwardRef<
   <CommandPrimitive.Group
     ref={ref}
     className={cn(
-      "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
-      className
+      "[&_[cmdk-group-heading]]:text-muted-foreground overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium",
+      className,
     )}
     {...props}
   />
-))
+));
 
-CommandGroup.displayName = CommandPrimitive.Group.displayName
+CommandGroup.displayName = CommandPrimitive.Group.displayName;
 
 const CommandSeparator = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Separator>,
@@ -3020,11 +3475,11 @@ const CommandSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 h-px bg-border", className)}
+    className={cn("bg-border -mx-1 h-px", className)}
     {...props}
   />
-))
-CommandSeparator.displayName = CommandPrimitive.Separator.displayName
+));
+CommandSeparator.displayName = CommandPrimitive.Separator.displayName;
 
 const CommandItem = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Item>,
@@ -3033,14 +3488,14 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50",
-      className
+      "data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+      className,
     )}
     {...props}
   />
-))
+));
 
-CommandItem.displayName = CommandPrimitive.Item.displayName
+CommandItem.displayName = CommandPrimitive.Item.displayName;
 
 const CommandShortcut = ({
   className,
@@ -3049,14 +3504,14 @@ const CommandShortcut = ({
   return (
     <span
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
-        className
+        "text-muted-foreground ml-auto text-xs tracking-widest",
+        className,
       )}
       {...props}
     />
-  )
-}
-CommandShortcut.displayName = "CommandShortcut"
+  );
+};
+CommandShortcut.displayName = "CommandShortcut";
 
 export {
   Command,
@@ -3068,7 +3523,7 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
-}
+};
 
 // File: src/components/ui/accordion.tsx
 /* eslint-disable react/prop-types */
@@ -3160,21 +3615,22 @@ Label.displayName = LabelPrimitive.Root.displayName
 export { Label }
 
 // File: src/components/ui/dialog.tsx
-"use client"
+/* eslint-disable react/prop-types */
+"use client";
 
-import * as React from "react"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { X } from "lucide-react"
+import * as React from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root
+const Dialog = DialogPrimitive.Root;
 
-const DialogTrigger = DialogPrimitive.Trigger
+const DialogTrigger = DialogPrimitive.Trigger;
 
-const DialogPortal = DialogPrimitive.Portal
+const DialogPortal = DialogPrimitive.Portal;
 
-const DialogClose = DialogPrimitive.Close
+const DialogClose = DialogPrimitive.Close;
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -3183,13 +3639,13 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className
+      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0  fixed inset-0 z-50 bg-black/80",
+      className,
     )}
     {...props}
   />
-))
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+));
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
@@ -3200,20 +3656,20 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+        className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
+      <DialogPrimitive.Close className="focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none">
+        <X className="size-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
-))
-DialogContent.displayName = DialogPrimitive.Content.displayName
+));
+DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({
   className,
@@ -3222,12 +3678,12 @@ const DialogHeader = ({
   <div
     className={cn(
       "flex flex-col space-y-1.5 text-center sm:text-left",
-      className
+      className,
     )}
     {...props}
   />
-)
-DialogHeader.displayName = "DialogHeader"
+);
+DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({
   className,
@@ -3236,12 +3692,12 @@ const DialogFooter = ({
   <div
     className={cn(
       "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
-      className
+      className,
     )}
     {...props}
   />
-)
-DialogFooter.displayName = "DialogFooter"
+);
+DialogFooter.displayName = "DialogFooter";
 
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
@@ -3251,12 +3707,12 @@ const DialogTitle = React.forwardRef<
     ref={ref}
     className={cn(
       "text-lg font-semibold leading-none tracking-tight",
-      className
+      className,
     )}
     {...props}
   />
-))
-DialogTitle.displayName = DialogPrimitive.Title.displayName
+));
+DialogTitle.displayName = DialogPrimitive.Title.displayName;
 
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
@@ -3264,11 +3720,11 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-muted-foreground text-sm", className)}
     {...props}
   />
-))
-DialogDescription.displayName = DialogPrimitive.Description.displayName
+));
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,
@@ -3281,7 +3737,7 @@ export {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-}
+};
 
 // File: src/components/ui/multiple-selector.tsx
 /* eslint-disable react/prop-types */
@@ -3455,7 +3911,6 @@ const CommandEmpty = forwardRef<
     <div
       ref={forwardedRef}
       className={cn("py-6 text-center text-sm", className)}
-      cmdk-empty=""
       role="presentation"
       {...props}
     />
@@ -3962,44 +4417,18 @@ export const SettingsForm = () => {
     },
   });
   const submitHandler = async (data: z.infer<typeof settingsObject>) => {
-    let svg: { name: string; url: string } | undefined;
     setIsLoading(true);
-    const formData = new FormData();
-    if (data?.file) {
-      const file = data?.file[0];
-      formData.append("file", file);
-      const res = await fetch("/api/uploads/svg", {
-        method: "POST",
-        body: formData,
+    postData("/api/settings", {
+      lat: data.lat_settings,
+      lng: data.lng_settings,
+      zoom: data.zoom || 11,
+    })
+      .then(() => {
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsLoading(false);
       });
-      svg = await res.json();
-    }
-    if (!svg) {
-      postData("/api/settings", {
-        lat: data.lat_settings,
-        lng: data.lng_settings,
-        zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
-      })
-        .then(() => {
-          setIsLoading(false);
-        })
-        .catch(() => {
-          setIsLoading(false);
-        });
-    } else {
-      postData("/api/settings", {
-        lat: data.lat_settings,
-        lng: data.lng_settings,
-        zoom: data.zoom || 11, // Ensure a default zoom is set if undefined
-        PointIcon: [...((settings?.PointIcon as []) || []), svg],
-      })
-        .then(() => {
-          setIsLoading(false);
-        })
-        .catch(() => {
-          setIsLoading(false);
-        });
-    }
   };
   return (
     <form
@@ -4046,14 +4475,6 @@ export const SettingsForm = () => {
             isInvalid={!!errors.zoom}
             errorMessage={errors.zoom ? errors.zoom.message : ""}
             {...register("zoom", { required: true, valueAsNumber: true })}
-          />
-
-          <Input
-            type="file"
-            accept=".svg"
-            isInvalid={!!errors.file}
-            errorMessage={errors.file ? errors.file.message : ""}
-            {...register("file")}
           />
         </div>
       </ModalBody>
@@ -4119,6 +4540,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
     handleSubmit,
     reset,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<z.infer<typeof pointObject>>({
     resolver: zodResolver(pointObject),
@@ -4132,6 +4554,9 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
       active: data.point?.active || false,
       connect: data.point?.connect || false,
       status: data.point?.status || false,
+      ip: data.point?.ip || "127.0.0.1",
+      port: data.point?.port || 5000,
+      requireData: data.point?.requireData || [],
       level: data.point?.level || 0,
     },
   });
@@ -4159,6 +4584,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           setIsLoading(false);
         });
     } else {
+      console.log(settings);
       setIsLoading(true);
       postData("/api/points", { ...newPoint })
         .then(() => {
@@ -4239,6 +4665,16 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
           />{" "}
           <Input
             isRequired
+            label="ip"
+            labelPlacement="outside"
+            className="text-lg font-semibold"
+            placeholder="Enter point ip"
+            isInvalid={!!errors.ip}
+            errorMessage={errors.ip ? errors.ip.message : ""}
+            {...register("ip", { required: true })}
+          />
+          <Input
+            isRequired
             label="port"
             labelPlacement="outside"
             className="text-lg font-semibold"
@@ -4247,23 +4683,26 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.port ? errors.port.message : ""}
             {...register("port", { required: true, valueAsNumber: true })}
           />
-          {/* <MultipleSelector
+          <MultipleSelector
             defaultOptions={OPTIONS}
-            placeholder="Select frameworks you like..."
+            placeholder="choose item for point"
             className="bg-white"
             emptyIndicator={
               <p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">
                 no results found.
               </p>
             }
+            value={getValues("requireData").map((el) => ({
+              label: el,
+              value: el,
+            }))}
             onChange={(e) => {
               const data = e.map((e) => e.value);
               setValue("requireData", data);
             }}
-          /> */}
-          {/* Select for Icon Type */}
+          />
           <Select
-            label="Choose Icon"
+            label="point type"
             placeholder="Select an icon"
             className="text-lg font-semibold "
             isRequired
@@ -4271,7 +4710,7 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.iconType ? errors.iconType.message : ""}
             {...register("iconType", { required: true })}
           >
-            {settings?.PointIcon ? (
+            {settings ? (
               settings?.PointIcon.map((val) => (
                 <SelectItem key={val.name} value={val.name}>
                   {val.name}
@@ -4530,9 +4969,14 @@ module.exports = DF;
 // File: models/pointDataModel.ts
 import mongoose from "mongoose";
 
-const schema = new mongoose.Schema({
-  data: { type: {}, require: true },
-});
+const schema = new mongoose.Schema(
+  {
+    data: { type: {}, require: true },
+  },
+  {
+    timestamps: true,
+  },
+);
 
 const PointsDataModel =
   mongoose.models.PointsData || mongoose.model("PointsData", schema);
@@ -4609,6 +5053,10 @@ const schema = new mongoose.Schema({
   requireData: {
     type: Array,
     default: [],
+  },
+  ip: {
+    type: String,
+    default: "127.0.0.1",
   },
   port: {
     type: Number,

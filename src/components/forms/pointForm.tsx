@@ -18,6 +18,7 @@ import { useModal } from "@/store/useModal";
 import { useAppStore } from "@/store/store";
 import MultipleSelector, { Option } from "@/components/ui/multiple-selector";
 import { Label } from "../ui/label";
+import { PointIcon } from "../map/PointIcon";
 const OPTIONS: Option[] = [
   { label: "frequency", value: "frequency" },
   { label: "angle", value: "angle" },
@@ -205,25 +206,11 @@ export const PointForm = ({ type }: { type?: "edit" | "create" }) => {
             errorMessage={errors.iconType ? errors.iconType.message : ""}
             {...register("iconType", { required: true })}
           >
-            {settings ? (
-              settings?.PointIcon.map((val) => (
-                <SelectItem key={val.name} value={val.name}>
-                  {val.name}
-                </SelectItem>
-              ))
-            ) : (
-              <>
-                <SelectItem key="car" value="car">
-                  Car
-                </SelectItem>
-                <SelectItem key="plane" value="plane">
-                  Plane
-                </SelectItem>
-                <SelectItem key="bus" value="bus">
-                  Bus
-                </SelectItem>
-              </>
-            )}
+            {PointIcon.map((val) => (
+              <SelectItem key={val.name} value={val.name}>
+                {val.name}
+              </SelectItem>
+            ))}
           </Select>
           <div className="flex items-center  gap-2">
             <Label htmlFor="status" className="text-sm font-semibold">
