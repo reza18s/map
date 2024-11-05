@@ -22,6 +22,7 @@ export const SettingsForm = () => {
       lat_settings: settings?.lat || 35.694523130867424,
       lng_settings: settings?.lng || 51.30922197948697,
       zoom: settings?.zoom || 11,
+      frequency: settings?.frequency,
     },
   });
   const submitHandler = async (data: z.infer<typeof settingsObject>) => {
@@ -30,6 +31,7 @@ export const SettingsForm = () => {
       lat: data.lat_settings,
       lng: data.lng_settings,
       zoom: data.zoom || 11,
+      frequency: data.frequency,
     })
       .then(() => {
         setIsLoading(false);
@@ -83,6 +85,15 @@ export const SettingsForm = () => {
             isInvalid={!!errors.zoom}
             errorMessage={errors.zoom ? errors.zoom.message : ""}
             {...register("zoom", { required: true, valueAsNumber: true })}
+          />
+          <Input
+            isRequired
+            label="frequency"
+            labelPlacement="outside"
+            placeholder="Enter map frequency"
+            isInvalid={!!errors.frequency}
+            errorMessage={errors.frequency ? errors.frequency.message : ""}
+            {...register("frequency", { required: true, valueAsNumber: true })}
           />
         </div>
       </ModalBody>

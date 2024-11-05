@@ -30,6 +30,23 @@ export const Draw = async (map: L.Map) => {
 
       // drawnItems.removeLayer(polygon._id);
       drawnItems.addLayer(layer);
+      let popupContent = `<strong>Name: ${polygon.name}</strong><br><strong>Edges:</strong><br>`;
+
+      const points = polygon.points;
+
+      for (let i = 0; i < points.length; i++) {
+        const start = L.latLng(points[i].lat, points[i].lng);
+        const end = L.latLng(
+          points[(i + 1) % points.length].lat,
+          points[(i + 1) % points.length].lng,
+        ); // Loop back to the first point for the last edge
+
+        const distance = calculateDistance(start, end);
+        const angle = calculateAngle(start, end);
+
+        popupContent += `Edge ${i + 1}: Length = ${(distance / 1000).toFixed(2)} km, Angle = ${angle.toFixed(2)}°<br>`;
+      }
+      layer.bindPopup(popupContent).openPopup();
     });
     AllLines.forEach((line) => {
       const latlngs = [
@@ -123,6 +140,10 @@ export const Draw = async (map: L.Map) => {
           console.error("Error creating polygon:", err);
           alert("Failed to create the polygon. Please try again.");
         });
+      const popupContent = `
+        <strong>${name}</strong><br>
+      `;
+      layer.bindPopup(popupContent).openPopup();
     } else if (event.layerType === "polyline") {
       const latlngs = (layer as L.Polyline).getLatLngs() as L.LatLng[];
       if (latlngs.length >= 2) {

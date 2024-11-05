@@ -21,7 +21,7 @@ export interface ISettings {
   lat: number;
   lng: number;
   zoom: number;
-  PointIcon: { name: string; url: string }[];
+  frequency?: number;
 }
 export interface ILine {
   _id: string;

@@ -1,4 +1,5 @@
 import { connectDB } from "@/configs/db";
+import PointsModel from "@/models/pointsModel";
 import SettingsModel from "@/models/SettingsModel";
 import { NextResponse } from "next/server";
 
@@ -6,10 +7,13 @@ export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
-    const { lat, lng, zoom, PointIcon } = body;
+    const { lat, lng, zoom, frequency } = body;
+    if (frequency) {
+      await PointsModel.updateMany({}, { $set: { frequency } });
+    }
     await SettingsModel.findOneAndUpdate(
       { _id: "6703d33db86aa836f46946c6" },
-      { $set: { lat, lng, zoom, PointIcon } },
+      { $set: { lat, lng, zoom, frequency } },
     );
     return NextResponse.json(
       { message: "Point updated successfully!" },
